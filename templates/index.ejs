@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="utf-8">
+    <title>Socket.IOの練習</title>
+</head>
+<body>
+    <form id="myForm">
+        <select id="rooms">
+            <option value="room-1">Room 1</option>
+            <option value="room-2">Room 2</option>
+        </select>
+        <input type="text" id="msg"> <input type="submit" value="Send!">
+    </form>
+    <ul id="logs"></ul>
+    <div id="news"></div>
+
+    <script src="https://code.jquery.com/jquery-2.1.4.min.js"></script>
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        function randomString(len) {
+            // http://qiita.com/ryounagaoka/items/4736c225bdd86a74d59c
+            var c = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+            var cl = c.length;
+            var r = "";
+            for (var i = 0; i < len; i++) {
+                r += c[Math.floor(Math.random()*cl)];
+            }
+            return r;
+        };
+
+        $(function() {
+            var chat = io.connect("http://<%= host %>/chat");
+            var news = io.connect("http://<%= host %>/news");
+            $('#myForm').submit(function(e) {
+                e.preventDefault();
+                chat.json.emit('emit_from_client', {
+                    msg: $('#msg').val(),
+                    room: $("#rooms").val()
+                });
+                $('#msg').val('').focus();
+            });
+            chat.on('emit_from_server', function(data) {
+                $("#logs").append($('<li>').text(data));
+            });        
+            news.on('emit_from_server', function(data) {
+                $("#news").text(data);
+            }); 
+            
+            var key = localStorage.getItem("key");
+            if (!key) {
+                key = randomString(32);
+                localStorage.setItem("key", key);
+            }
+            console.log(key);
+
+
+            // localstrage       
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+body {
+    overflow-x: hidden; /* Prevent scroll on narrow devices */
+    padding-top: 50px;
+}
+/*
+.container {
+    padding-right: 0px;
+    padding-left: 0px;
+    margin-right: 0px;
+    margin-left: 0px;
+}
+*/

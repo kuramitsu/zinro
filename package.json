@@ -1,5 +1,13 @@
 {
     "name": "zinro",
-    "version": "0.0.0",
-    "description": ""
+    "version": "0.0.1",
+    "description": "",
+    "scripts": {
+        "start": "node app"
+    },
+    "dependencies": {
+        "express": "*",
+        "socket.io": "*",
+        "ect": "*"
+    }
 }

@@ -3,22 +3,22 @@ var zinroApp = angular.module('zinroApp', ['mgcrea.ngStrap']);
 
 console.log(homeurl);
             
-
-//io_game.json.emit('emit_from_client', {
-
 zinroApp.controller('ZinroCtrl', function($scope) {
-
     var io_game = io.connect(homeurl + "/game");
     io_game.on('status', function(data) {
         $scope.village_state = data.village_state;
+        $scope.user = data.user
         console.log(data);   
-    })
+    });
     io_game.on('villager', function(data) {
         console.log(data);   
-    })
+    });
     io_game.on('werewolf', function(data) {
         console.log(data);   
-    })
+    });
+    io_game.on('', function(data) {
+        
+    });
     io_game.json.emit('get_status', {key:"abcdefg"});
     io_game.emit('villager', "TEST IO!");
     io_game.emit('werewolf', "WOLF IO!");
@@ -26,24 +26,37 @@ zinroApp.controller('ZinroCtrl', function($scope) {
 
     $scope.tabs =  [
         {
-            "title": "状態",
-            "content": "HOME CONTENT"
+            "title": "状態"
         },
         {
-            "title": "村民会",
-            "content": "HOME CONTENT"
+            "title": "村民会"
         },
         {
-            "title": "人狼会",
-            "content": "PROFILE CONTENT<hr><h1>TEST</h1>"
+            "title": "人狼会"
         },
         {
-            "title": "投票",
-            "content": "投票！"
+            "title": "投票"
         }
     ]
-    $scope.tabs.activeTab = "1";
+    $scope.tabs.activeTab = "状態";
 });
+
+
+zinroApp.controller('VillageCtrl', function($scope, $http) {
+    $scope.village = {}     // 初期値は前回の状態を反映
+    $scope.initVillage = function() {
+        console.log($scope.village);
+
+        $http.post(
+            '/init_village', $scope.village
+        ).success(function(data) {
+            console.log("posted successfully");
+        }).error(function(data) {
+            console.error("error in posting");   
+        })
+    };
+});
+
 
 // http://codepen.io/MehmetCanker/pen/jluqp
 zinroApp.controller('CounterCtrl', ['$scope', '$timeout', function($scope, $timeout) {

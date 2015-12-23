@@ -2,3 +2,6 @@ body {
     overflow-x: hidden; /* Prevent scroll on narrow devices */
     padding-top: 70px;
 }
+.msg-error {
+    color: red;
+}

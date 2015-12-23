@@ -21,7 +21,15 @@
     <nav class="navbar navbar-fixed-top navbar-inverse" role="navigation" bs-navbar>
         <div class="container">
             <div class="navbar-header" ng-controller="CounterCtrl" ng-init="countdown()">
-                <a class="navbar-brand">{{village_state.days}}日目 {{village_state.phase}} （残り{{counter}}秒）</a>
+                <a ng-show="village_state.state == '廃村'" class="navbar-brand">
+                    廃村
+                </a>
+                <a ng-show="village_state.state == '村民募集中'" class="navbar-brand">
+                    村民募集中
+                </a>
+                <a ng-show="village_state.state == 'Playing'" class="navbar-brand">
+                    {{village_state.days}}日目 {{village_state.phase}} （残り{{counter}}秒）
+                </a>
             </div>
         </div>
     </nav>
@@ -30,7 +38,23 @@
             <div ng-repeat="tab in tabs" title="{{ tab.title }}" name="{{ tab.title }}" disabled="{{ tab.disabled }}" ng-bind="tab.content" bs-pane>
             </div>
         </div>
-    </div>
 
+
+        <div ng-show="tabs.activeTab == '状態'">
+            状態
+        </div>
+        <div ng-show="tabs.activeTab == '村民会'">
+            村民会
+        </div>
+        <div ng-show="tabs.activeTab == '人狼会'">
+            人狼会
+        </div>
+        
+        
+        <pre>{{village_state|json}}</pre>
+        <pre>{{tabs|json}}</pre>
+
+
+    </div>
 </body>
 </html>

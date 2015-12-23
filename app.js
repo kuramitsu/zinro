@@ -5,6 +5,7 @@ var express = require('express');
 var app = express();
 var server = require('http').Server(app);
 var io = require('socket.io')(server);
+var bodyParser = require('body-parser');
 
 // http://qiita.com/sukobuto/items/b0be22bfebd721854e0b
 app.engine('ect', ECT({ watch: true, root: __dirname + '/views', ext: '.ect' }).render);
@@ -13,22 +14,31 @@ app.set('view engine', 'ect');
 app.use(settings.static_url, express.static('bower_components'));
 app.use(settings.static_url, express.static('static'));
 
-// ソケット管理
-var io_game = io.of('/game');           // ゲームの状態通信用 
+// http://qiita.com/K_ichi/items/c70bf4b08467717460d5
+// https://github.com/expressjs/body-parser 
+app.use(bodyParser.urlencoded({extended: false}));
+app.use(bodyParser.json());
+
+// ソケット管理 =================================================
+var io_game = io.of('/game');           // ゲームの通信用 
+var room_villager = 'villager';
+var room_werewolf = 'werewolf';
 
 function send_chat(socket, room, data) {
     socket.join(room);
     io_game.to(room).emit(room, room + ": " + data);
-    console.log(room + ": " + data);
+    // console.log(room + ": " + data);
+}
+function leave_all_room(socket) {
+    socket.leave(room_villager);
+    socket.leave(room_werewolf);
 }
 
 io_game.on('connection', function(socket){
     // ゲームの進行状況同期用
     socket.on("get_status", function(data) {
         console.log(data.key);      // 誰からの通信か       
-        socket.json.emit("status", {
-            village_state: village_state
-        }); 
+        send_village_state();
     })
 
     // チャット関連
@@ -37,9 +47,6 @@ io_game.on('connection', function(socket){
         io_game.to(room).emit(room, room + ": " + data);
         console.log(room + ": " + data);
     }
-    var room_villager = 'villager';
-    var room_werewolf = 'werewolf';
-
     socket.on(room_villager, function(data){
         send_chatmsg(room_villager, data);
     }); 
@@ -51,29 +58,63 @@ io_game.on('connection', function(socket){
     }); 
 });
 
-// 村の状態管理
+// 村の状態管理 ==================================================
 var village = {
-    name: "CITS村"
+    name: "ナカヨシ村",
+    daytime: 120,
+    nighttime: 120,
+    roles: {
+        村人: {
+            num: 2,
+            camp: "村人",
+            chats: [room_villager]
+        },
+        占い師: {
+            num: 1,
+            camp: "村人",
+            chats: [room_villager]
+        },
+        人狼: {
+            num: 1,
+            camp: "人狼",
+            chats: [room_villager, room_werewolf]
+        }
+    },
+    firstnpc: true,     // 初日犠牲者はNPC
+    roledeath: true
 }
 var village_state = {
-    days: 0,
-    phase: "廃村"    // 廃村 or 村民募集中 or 昼 or 夜
+    state: "廃村",      // 廃村 or 村民募集中 or Playing
+    days: 0,            // 何日目か
+    phase: "昼",        // 昼 or 夜
+    time: 50            // 次のフェーズまでの秒数
 }
-var village_roles = [];
-var rolenum = {
-    村人: 2,
-    占い師: 1,
-    人狼: 1
-}
-function strVillageState(state) {
-    return state.days + "日目" + " " + state.phase;
+   
+function send_village_state() {
+    io_game.json.emit("status", {
+        village_state: village_state
+    }); 
 }
 
 
-// 村民管理
-var villagers = {};     // ローカルキーで管理
-var villager_name_tbl = {};      // 名前でキーを逆引き
-var villager_key_list = [];      // ローカルキー一覧
+var uptime = 0;
+setInterval(function() {
+    if (village_state.state != "廃村" && uptime % 5 == 0) {
+        console.log(village_state);
+        send_village_state();   // 定期的に村の状態送って同期とる
+    }
+    if (village_state.time > 0) {
+        village_state.time -= 1;
+    }
+    uptime += 1;
+}, 1000);
+
+
+
+// 村民管理 =====================================================================
+var villagers = {};                 // ローカルキーで管理
+var villager_name_tbl = {};         // 名前でキーを逆引き
+var villager_key_list = [];         // ローカルキー一覧
 function addVillager(key, name) {
     villagers[key] = {
         name: name
@@ -83,27 +124,73 @@ function addVillager(key, name) {
 } 
 // function setVillagerRole(key, )
 
+
+function isObject(o) {
+    return (o instanceof Object && !(o instanceof Array)) ? true : false;
+};
+function dictUpdate(target, option) {
+    if (isObject(target) == false) {
+        return target;
+    }
+    for (var key in target) {
+        if (key in option) {
+            if (isObject(target[key])) {
+                dictUpdate(target[key], option[key]);
+            } else {
+                target[key] = option[key];
+            }
+        }
+    }
+    return target
+}
+
+
 // 村の初期化
-function initVillage() {
+function initVillage(village_option) {
+    // オプションの反映
+    dictUpdate(village, village_option);
+    
+    // 村の状態初期化 
+    village_state.days = 0;
+    village_state.state = "村民募集中";
+
+    // 村民の状態初期化
+
+
+    // すべてのチャットルームから強制退去
+    // http://stackoverflow.com/questions/30570658/how-to-disconnect-all-sockets-serve-side-using-socket-io
+    io.sockets.sockets.forEach(function(socket) {
+        //s.disconnect(true);
+        leave_all_room(socket);
+        console.log(village_state);
+    });
+    // 全員募集ページへ飛ばす
+    send_village_state();
+
 
 }
 
 
 // 村の設定
-app.get('/dev', function (req, res) {
-    res.render("dev", {
+app.get('/init_village', function (req, res) {
+    res.render("init_village", {
         host: req.headers.host,
         static_url: settings.static_url,
         village: village
     });
+});
+app.post('/init_village', function (req, res) {
+    var village_option = req.body;
+    console.log(village_option);
+    initVillage(village_option);   
+    res.end();
 });
 
 app.get('/', function (req, res) {
     //res.send('Hello World!');
     res.render("index", {
         host: req.headers.host,
-        static_url: settings.static_url,
-        village_state: strVillageState(village_state)
+        static_url: settings.static_url
     });
 });
 

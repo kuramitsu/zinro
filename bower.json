@@ -1,0 +1,24 @@
+{
+  "name": "zinro",
+  "description": "",
+  "main": "app.js",
+  "authors": [
+    "t-kuramitsu"
+  ],
+  "license": "MIT",
+  "homepage": "https://github.com/kuramitsu/zinro",
+  "moduleType": [
+    "node"
+  ],
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ],
+  "dependencies": {
+    "angular-strap": "~2.3.6",
+    "angular-motion": "~0.4.3"
+  }
+}

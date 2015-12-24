@@ -37,7 +37,7 @@ function leave_all_room(socket) {
 io_game.on('connection', function(socket){
     // ゲームの進行状況同期用
     socket.on("get_status", function(data) {
-        console.log(data.key);      // 誰からの通信か       
+        console.log(data.key);   
         send_village_state();
     })
 
@@ -81,7 +81,7 @@ var village = {
         }
     },
     firstnpc: true,     // 初日犠牲者はNPC
-    roledeath: true
+    roledeath: true     // 初日役職死亡あり
 }
 var village_state = {
     state: "廃村",      // 廃村 or 村民募集中 or Playing
@@ -92,6 +92,7 @@ var village_state = {
    
 function send_village_state() {
     io_game.json.emit("status", {
+        village: village,
         village_state: village_state
     }); 
 }
@@ -112,10 +113,30 @@ setInterval(function() {
 
 
 // 村民管理 =====================================================================
-var villagers = {};                 // ローカルキーで管理
-var villager_name_tbl = {};         // 名前でキーを逆引き
-var villager_key_list = [];         // ローカルキー一覧
+var villagers = [];             // 
+var villager_map = {};          // zinrokey => idx
+
+
+// Fisher Yates Shuffle
+function shuffleArray(array) {
+    var n = array.length, t, i;
+
+    while (n) {
+        i = Math.floor(Math.random() * n--);
+        t = array[n];
+        array[n] = array[i];
+        array[i] = t;   
+    }
+    return array;
+}
+
 function addVillager(key, name) {
+    var villager = {
+        name: name,
+        alive: true
+    }
+
+
     villagers[key] = {
         name: name
     };
@@ -146,13 +167,13 @@ function dictUpdate(target, option) {
 
 
 // 村の初期化
-function initVillage(village_option) {
+function initVillage(village_option, state) {
     // オプションの反映
     dictUpdate(village, village_option);
     
     // 村の状態初期化 
     village_state.days = 0;
-    village_state.state = "村民募集中";
+    village_state.state = state;
 
     // 村民の状態初期化
 
@@ -173,20 +194,33 @@ function initVillage(village_option) {
 
 // 村の設定
 app.get('/init_village', function (req, res) {
-    res.render("init_village", {
-        host: req.headers.host,
-        static_url: settings.static_url,
-        village: village
-    });
+    if (village_state.state == "廃村") {
+        res.render("init_village", {
+            host: req.headers.host,
+            static_url: settings.static_url,
+            village: village
+        });
+    } else {
+        res.render("destroy_village", {
+            host: req.headers.host,
+            static_url: settings.static_url,
+            village: village,
+            village_state: village_state
+        });
+    }
 });
 app.post('/init_village', function (req, res) {
     var village_option = req.body;
     console.log(village_option);
-    initVillage(village_option);   
+    initVillage(village_option, "村民募集中");   
+    res.end();
+});
+app.post('/destroy_village', function (req, res) {
+    initVillage({}, "廃村");   
     res.end();
 });
 
-app.get('/', function (req, res) {
+app.get('/zinro', function (req, res) {
     //res.send('Hello World!');
     res.render("index", {
         host: req.headers.host,

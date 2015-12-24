@@ -34,25 +34,30 @@
         </div>
     </nav>
     <div class="container">
-        <div bs-active-pane="tabs.activeTab" bs-tabs>
-            <div ng-repeat="tab in tabs" title="{{ tab.title }}" name="{{ tab.title }}" disabled="{{ tab.disabled }}" ng-bind="tab.content" bs-pane>
+        
+        <div ng-show="village_state.state == '廃村'">
+            <br>
+            <a href="/init_village">村を作ってください…</a>
+        </div> 
+
+
+        <div ng-show="village_state.state == 'Playing'">
+            <div bs-active-pane="tabs.activeTab" bs-tabs>
+                <div ng-repeat="tab in tabs" title="{{ tab.title }}" name="{{ tab.title }}" disabled="{{ tab.disabled }}" ng-bind="tab.content" bs-pane>
+                </div>
             </div>
-        </div>
-
-
-        <div ng-show="tabs.activeTab == '状態'">
-            状態
-        </div>
-        <div ng-show="tabs.activeTab == '村民会'">
-            村民会
-        </div>
-        <div ng-show="tabs.activeTab == '人狼会'">
-            人狼会
+            <div ng-show="tabs.activeTab == '状態'">
+                <pre>{{village_state|json}}</pre>
+            </div>
+            <div ng-show="tabs.activeTab == '村民会'">
+                村民会
+            </div>
+            <div ng-show="tabs.activeTab == '人狼会'">
+                人狼会
+            </div>
+            <pre>{{tabs|json}}</pre>
         </div>
         
-        
-        <pre>{{village_state|json}}</pre>
-        <pre>{{tabs|json}}</pre>
 
 
     </div>

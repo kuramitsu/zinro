@@ -1,13 +1,33 @@
 // var zinroApp = angular.module('zinroApp', ['mgcrea.ngStrap.navbar', 'mgcrea.ngStrap.tab']);
 var zinroApp = angular.module('zinroApp', ['mgcrea.ngStrap']);
-
 console.log(homeurl);
+
+function randomString(len) {
+    // http://qiita.com/ryounagaoka/items/4736c225bdd86a74d59c
+    var c = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+    var cl = c.length;
+    var r = "";
+    for (var i = 0; i < len; i++) {
+        r += c[Math.floor(Math.random()*cl)];
+    }
+    return r;
+};
+
+function get_zinrokey() {
+    var zinrokey = localStorage.getItem("zinrokey");
+    if (!zinrokey) {
+        zinrokey = randomString(32);
+        localStorage.setItem("zinrokey", zinrokey);
+    }
+    return zinrokey
+}
+            
             
 zinroApp.controller('ZinroCtrl', function($scope) {
     var io_game = io.connect(homeurl + "/game");
     io_game.on('status', function(data) {
         $scope.village_state = data.village_state;
-        $scope.user = data.user
+        $scope.villagers = data.villagers;  // 村民一覧  alive:false で死亡
         console.log(data);   
     });
     io_game.on('villager', function(data) {
@@ -16,13 +36,11 @@ zinroApp.controller('ZinroCtrl', function($scope) {
     io_game.on('werewolf', function(data) {
         console.log(data);   
     });
-    io_game.on('', function(data) {
-        
-    });
-    io_game.json.emit('get_status', {key:"abcdefg"});
-    io_game.emit('villager', "TEST IO!");
-    io_game.emit('werewolf', "WOLF IO!");
-    io_game.emit('villager', "Villager IO!");
+    io_game.json.emit('get_status', { key: get_zinrokey() });
+    
+    //io_game.emit('villager', "TEST IO!");
+    //io_game.emit('werewolf', "WOLF IO!");
+    //io_game.emit('villager', "Villager IO!");
 
     $scope.tabs =  [
         {
@@ -45,15 +63,27 @@ zinroApp.controller('ZinroCtrl', function($scope) {
 zinroApp.controller('VillageCtrl', function($scope, $http) {
     $scope.village = {}     // 初期値は前回の状態を反映
     $scope.initVillage = function() {
-        console.log($scope.village);
-
         $http.post(
             '/init_village', $scope.village
         ).success(function(data) {
             console.log("posted successfully");
+            window.location.href = '/zinro';
         }).error(function(data) {
-            console.error("error in posting");   
+            console.error("error in posting");
         })
+    };
+    $scope.destroyVillage = function() {
+        $http.post(
+            '/destroy_village'
+        ).success(function(data) {
+            console.log("posted successfully");
+            window.location.reload(true);
+        }).error(function(data) {
+            console.error("error in posting");
+        })
+    };
+    $scope.joinVillage = function() {
+        window.location.href = '/zinro';
     };
 });
 
@@ -74,6 +104,8 @@ zinroApp.controller('CounterCtrl', ['$scope', '$timeout', function($scope, $time
         $timeout.cancel(stopped);
     };
 }]);
+
+
 
 // http://jsfiddle.net/jaredwilli/SfJ8c/
 zinroApp.directive('resize', function ($window) {

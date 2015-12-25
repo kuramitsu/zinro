@@ -39,6 +39,17 @@
             <br>
             <a href="/init_village">村を作ってください…</a>
         </div> 
+        
+        <div ng-show="village_state.state == '村民募集中'">
+            <br>
+            <a href="/init_village">村を作り直す？</a>
+            <hr> 
+            <h3>村民一覧</h3> 
+            <ul ng-repeat="v in villagers">
+                <li>{{v.name}}</li>
+            </ul>
+
+        </div> 
 
 
         <div ng-show="village_state.state == 'Playing'">

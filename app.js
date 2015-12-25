@@ -23,6 +23,7 @@ app.use(bodyParser.json());
 var io_game = io.of('/game');           // ゲームの通信用 
 var room_villager = 'villager';
 var room_werewolf = 'werewolf';
+var room_sharer = 'sharer';
 
 function send_chat(socket, room, data) {
     socket.join(room);
@@ -39,6 +40,10 @@ io_game.on('connection', function(socket){
     socket.on("get_status", function(data) {
         console.log(data.key);   
         send_village_state();
+        if (data.key in villagers) {
+            // ユーザー自身の情報を返す
+               
+        }
     })
 
     // チャット関連
@@ -66,18 +71,51 @@ var village = {
     roles: {
         村人: {
             num: 2,
-            camp: "村人",
+            camp: "村人",           // 陣営
+            divination: "村人",     // 占った時の表示
             chats: [room_villager]
         },
         占い師: {
             num: 1,
             camp: "村人",
+            divination: "村人",
             chats: [room_villager]
         },
         人狼: {
             num: 1,
             camp: "人狼",
+            divination: "人狼",
             chats: [room_villager, room_werewolf]
+        },
+        狂人: {
+            num: 1,
+            camp: "人狼",
+            divination: "村人",
+            chats: [room_villager]
+        },
+        狩人: {
+            num: 0,
+            camp: "村人",
+            divination: "村人", 
+            chats: [room_villager]
+        },
+        霊能者: {
+            num: 0,
+            camp: "村人",
+            divination: "村人", 
+            chats: [room_villager]
+        },
+        共有者: {
+            num: 0,
+            camp: "村人",
+            divination: "村人",
+            chats: [room_villager, room_sharer]
+        },
+        妖狐: {
+            num: 0,
+            camp: "妖狐",
+            divination: "村人",     // 占われた時点で死亡する
+            chats: [room_villager]
         }
     },
     firstnpc: true,     // 初日犠牲者はNPC
@@ -91,9 +129,18 @@ var village_state = {
 }
    
 function send_village_state() {
+    var _villagers = [];
+    for (var key in villagers) {
+        var v = {
+            name: villagers[key].name,
+            alive: villagers[key].alive
+        }
+        _villagers.push(v);
+    }
     io_game.json.emit("status", {
         village: village,
-        village_state: village_state
+        village_state: village_state,
+        villagers: _villagers       // キーや役職は隠して送る
     }); 
 }
 
@@ -113,9 +160,74 @@ setInterval(function() {
 
 
 // 村民管理 =====================================================================
-var villagers = [];             // 
-var villager_map = {};          // zinrokey => idx
+var villagers = {};         // zinrokey => villager 
+var rolebucket = [];        // 役職選択用
 
+
+// 村民の初期化　＆　NPCの設定
+function initVillager() {
+    villagers = {};
+    initRolebucket();
+    // NPC(初日犠牲者)の設定
+    if (village.firstnpc) {
+        addNPC(village.roledeath);
+    }
+}
+
+function addNPC(roledeath) {
+    addVillager(settings.npckey, settings.npcname); 
+    npc = villagers[settings.npckey];
+    
+    if (npc.role == "人狼" || npc.role == "妖狐") {
+        changeRole(npc, "村人");
+    } else if (roledeath == false && npc.role != "村人") {
+        changeRole(npc, "村人");
+    }
+}
+
+// 指定の役職に変更する (rolebucketから検索して交代。空ならそのまま)
+function changeRole(villager, role) {
+    for (var i = 0, len = rolebucket.length; i < len; i++) {
+        if (role == rolebucket[i]) {
+            rolebucket[i] = villager.role;
+            villager.role = role;
+            break; 
+        }
+    }
+}
+
+function getRole() {
+    var role = rolebucket.pop();
+    if (!role) {    // 配列空っぽだったら
+        role = "村人";
+    }
+    return role;
+}
+
+function addVillager(key, name) {
+    if (key in villagers) {
+        console.log("Duplicate key : " +  key);
+    } else {
+        var villager = {
+            name: name,
+            alive: true,
+            role: getRole()             // ロールの割り当て
+        }
+        villagers[key] = villager; 
+    }
+} 
+
+function initRolebucket() {
+    rolebucket = [];    // 空にする
+    for (var key in village.roles) {
+        var role = village.roles[key];
+        for (var i = 0; i < role.num; i++) {
+            rolebucket.push(key);
+        }
+    }
+    shuffleArray(rolebucket);
+    // console.log(rolebucket);
+}
 
 // Fisher Yates Shuffle
 function shuffleArray(array) {
@@ -130,19 +242,6 @@ function shuffleArray(array) {
     return array;
 }
 
-function addVillager(key, name) {
-    var villager = {
-        name: name,
-        alive: true
-    }
-
-
-    villagers[key] = {
-        name: name
-    };
-    villager_name_tbl[name] = key;
-    villager_key_list.push[key];
-} 
 // function setVillagerRole(key, )
 
 
@@ -175,20 +274,18 @@ function initVillage(village_option, state) {
     village_state.days = 0;
     village_state.state = state;
 
-    // 村民の状態初期化
-
-
     // すべてのチャットルームから強制退去
     // http://stackoverflow.com/questions/30570658/how-to-disconnect-all-sockets-serve-side-using-socket-io
     io.sockets.sockets.forEach(function(socket) {
         //s.disconnect(true);
         leave_all_room(socket);
-        console.log(village_state);
     });
+    
+    // 村民の状態初期化
+    initVillager();
+    
     // 全員募集ページへ飛ばす
     send_village_state();
-
-
 }
 
 

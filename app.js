@@ -39,12 +39,21 @@ io_game.on('connection', function(socket){
     // ゲームの進行状況同期用
     socket.on("get_status", function(data) {
         console.log(data.key);   
-        send_village_state();
+        socket.json.emit("status", getStatus());
         if (data.key in villagers) {
             // ユーザー自身の情報を返す
-               
+            socket.json.emit("user", getUser(data.key));
         }
-    })
+    });
+    // 村に参加する
+    socket.on("join", function(data) {
+        console.log(data);
+        addVillager(data.key, data.name); 
+        // 登録情報を返す
+        socket.json.emit("user", getUser(data.key));
+        // 全員に村民が増えたことを通知する
+        io_game.json.emit("status", getStatus());
+    });
 
     // チャット関連
     function send_chatmsg(room, data) {
@@ -125,10 +134,10 @@ var village_state = {
     state: "廃村",      // 廃村 or 村民募集中 or Playing
     days: 0,            // 何日目か
     phase: "昼",        // 昼 or 夜
-    time: 50            // 次のフェーズまでの秒数
+    time: 0            // 次のフェーズまでの秒数
 }
-   
-function send_village_state() {
+
+function getVillagersList() {
     var _villagers = [];
     for (var key in villagers) {
         var v = {
@@ -137,11 +146,24 @@ function send_village_state() {
         }
         _villagers.push(v);
     }
-    io_game.json.emit("status", {
+    return _villagers
+}
+   
+function getStatus() {
+    var _vlist = getVillagersList();    // キーや役職は隠して送る
+    var _wantnum = initvillagernum - _vlist.length; // 募集人数
+    var _status = {
         village: village,
         village_state: village_state,
-        villagers: _villagers       // キーや役職は隠して送る
-    }); 
+        villagers: _vlist, 
+        wantnum: _wantnum
+    }
+    return _status;
+}
+
+function getUser(key) {
+    var _user = villagers[key];
+    return _user;
 }
 
 
@@ -149,10 +171,14 @@ var uptime = 0;
 setInterval(function() {
     if (village_state.state != "廃村" && uptime % 5 == 0) {
         console.log(village_state);
-        send_village_state();   // 定期的に村の状態送って同期とる
+        io_game.json.emit("status", getStatus()); // 定期的に村の状態全員に送る 
     }
     if (village_state.time > 0) {
         village_state.time -= 1;
+    } else {    // 制限時間が過ぎたときの処理
+        if (village_state.state == "村民募集中") {
+            initVillage({}, "廃村");    // 人数が集まらなかったときは廃村
+        }
     }
     uptime += 1;
 }, 1000);
@@ -161,6 +187,7 @@ setInterval(function() {
 
 // 村民管理 =====================================================================
 var villagers = {};         // zinrokey => villager 
+var initvillagernum = 0;    // 初期人数
 var rolebucket = [];        // 役職選択用
 
 
@@ -225,6 +252,7 @@ function initRolebucket() {
             rolebucket.push(key);
         }
     }
+    initvillagernum = rolebucket.length;
     shuffleArray(rolebucket);
     // console.log(rolebucket);
 }
@@ -269,6 +297,13 @@ function dictUpdate(target, option) {
 function initVillage(village_option, state) {
     // オプションの反映
     dictUpdate(village, village_option);
+   
+    // 制限時間の設定
+    if (state == "廃村") {
+        village_state.time = 0;
+    } else if (state == "村民募集中") {
+        village_state.time = settings.wanttime;
+    }
     
     // 村の状態初期化 
     village_state.days = 0;
@@ -285,7 +320,7 @@ function initVillage(village_option, state) {
     initVillager();
     
     // 全員募集ページへ飛ばす
-    send_village_state();
+    io_game.json.emit("status", getStatus());
 }
 
 

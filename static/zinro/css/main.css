@@ -2,6 +2,9 @@ body {
     overflow-x: hidden; /* Prevent scroll on narrow devices */
     padding-top: 50px;
 }
+.msg-error {
+    color: red;
+}
 /*
 .container {
     padding-right: 0px;

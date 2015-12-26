@@ -13,7 +13,7 @@ function randomString(len) {
     return r;
 };
 
-function get_zinrokey() {
+function getZinrokey() {
     var zinrokey = localStorage.getItem("zinrokey");
     if (!zinrokey) {
         zinrokey = randomString(32);
@@ -21,14 +21,32 @@ function get_zinrokey() {
     }
     return zinrokey
 }
-            
-            
-zinroApp.controller('ZinroCtrl', function($scope) {
+function getJoinname() {
+    var joinname = localStorage.getItem("joinname");
+    if (!joinname) {
+        joinname = "";
+    }
+    return joinname;
+}
+   
+// 配列アノテーション http://www.buildinsider.net/web/angularjstips/0004
+// https://docs.angularjs.org/api/ng/service/$interval
+// http://blog.morizotter.com/2014/04/08/javascript-setinterval-settimeout/
+zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $interval) {
     var io_game = io.connect(homeurl + "/game");
     io_game.on('status', function(data) {
+        $scope.village = data.village;
         $scope.village_state = data.village_state;
         $scope.villagers = data.villagers;  // 村民一覧  alive:false で死亡
-        console.log(data);   
+        $scope.wantnum = data.wantnum;
+        console.log(data);
+        if ($scope.village_state.state == "廃村") {
+            $scope.user = undefined;
+        }
+    });
+    io_game.on('user', function(data) {
+        $scope.user = data;
+        console.log(data);
     });
     io_game.on('villager', function(data) {
         console.log(data);   
@@ -36,8 +54,31 @@ zinroApp.controller('ZinroCtrl', function($scope) {
     io_game.on('werewolf', function(data) {
         console.log(data);   
     });
-    io_game.json.emit('get_status', { key: get_zinrokey() });
-    
+    io_game.json.emit('get_status', { key: getZinrokey() });
+
+    $scope.joinname = getJoinname();
+    $scope.joinVillage = function () {
+        console.log($scope.joinname);
+        io_game.json.emit('join', {
+            "key": getZinrokey(),
+            "name": $scope.joinname 
+        });
+        localStorage.setItem("joinname", $scope.joinname);
+    };
+
+    // Timer処理
+    var stopped;
+    $scope.countdown = function() {
+        stopped = $interval(function() {
+            if ($scope.village_state.time > 0) {
+                $scope.village_state.time--;
+            }
+        }, 1000);
+    };
+    $scope.countstop = function() {
+        $interval.cancel(stopped);
+    };
+
     //io_game.emit('villager', "TEST IO!");
     //io_game.emit('werewolf', "WOLF IO!");
     //io_game.emit('villager', "Villager IO!");
@@ -57,7 +98,7 @@ zinroApp.controller('ZinroCtrl', function($scope) {
         }
     ]
     $scope.tabs.activeTab = "状態";
-});
+}]);
 
 
 zinroApp.controller('VillageCtrl', function($scope, $http) {

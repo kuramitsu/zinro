@@ -20,12 +20,12 @@
 <body ng-controller="ZinroCtrl">
     <nav class="navbar navbar-fixed-top navbar-inverse" role="navigation" bs-navbar>
         <div class="container">
-            <div class="navbar-header" ng-controller="CounterCtrl" ng-init="countdown()">
+            <div class="navbar-header" ng-init="countdown()">
                 <a ng-show="village_state.state == '廃村'" class="navbar-brand">
                     廃村
                 </a>
                 <a ng-show="village_state.state == '村民募集中'" class="navbar-brand">
-                    村民募集中
+                    村民募集中... 後 {{wantnum}} 人！ （{{village_state.time}}秒）
                 </a>
                 <a ng-show="village_state.state == 'Playing'" class="navbar-brand">
                     {{village_state.days}}日目 {{village_state.phase}} （残り{{counter}}秒）
@@ -42,13 +42,22 @@
         
         <div ng-show="village_state.state == '村民募集中'">
             <br>
-            <a href="/init_village">村を作り直す？</a>
+            <form novalidate class="form-inline" name="joinForm" ng-show="!user" ng-submit="joinVillage()" role="form">
+                <div class="form-group">
+                    <label for="inputName" class="control-label">お名前</label>
+                    <input id="inputName" type="text" class="form-control" style="max-width:200px;" name="name" ng-model="joinname" required ng-maxlength="10">
+                </div>
+                <span class="msg-error" ng-show="joinForm.name.$error.maxlength">10文字まで！</span>
+                <button type="submit" class="btn btn-primary">住居申請</button>
+            </form>
+
             <hr> 
-            <h3>村民一覧</h3> 
+            <h3>村民名簿</h3> 
             <ul ng-repeat="v in villagers">
                 <li>{{v.name}}</li>
             </ul>
-
+            <pre>{{user|json}}</pre>
+            <pre>{{village|json}}</pre>
         </div> 
 
 

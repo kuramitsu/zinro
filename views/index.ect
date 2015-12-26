@@ -20,19 +20,36 @@
 <body ng-controller="ZinroCtrl">
     <nav class="navbar navbar-fixed-top navbar-inverse" role="navigation" bs-navbar>
         <div class="container">
+            <!-- http://rails.honobono-life.info/Tutorial_Bootstrap3_AngularJS_NavMenu  -->
             <div class="navbar-header" ng-init="countdown()">
+                <button type="button" class="navbar-toggle" data-toggle="collapse" ng-click="isCollapsed = !isCollapsed">
+                    <span class="sr-only">Toggle navigation</span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                    <span class="icon-bar"></span>
+                </button>
+                
                 <a ng-show="village_state.state == '廃村'" class="navbar-brand">
                     廃村
                 </a>
                 <a ng-show="village_state.state == '村民募集中'" class="navbar-brand">
-                    村民募集中... 後 {{wantnum}} 人！ （{{village_state.time}}秒）
+                    村民募集中... 後 {{wantnum}} 人！ （{{time}}秒）
                 </a>
                 <a ng-show="village_state.state == 'Playing'" class="navbar-brand">
-                    {{village_state.days}}日目 {{village_state.phase}} （残り{{counter}}秒）
+                    {{village_state.days}}日目 {{village_state.phase}} （{{time}}秒）
                 </a>
+            </div>
+            <div id="navbar" class="navbar-collapse collapse" collapse="isCollapsed">
+                <ul class="nav navbar-nav">
+                    <li data-match-route="/$"><a href="#/">Home</a></li>
+                    <li data-match-route="/page-one"><a href="#/page-one">Page One</a></li>
+                    <li data-match-route="/page-two.*"><a href="#/page-two/sub-a">Page Two</a></li>
+                </ul>
             </div>
         </div>
     </nav>
+
+
     <div class="container">
         
         <div ng-show="village_state.state == '廃村'">
@@ -42,6 +59,9 @@
         
         <div ng-show="village_state.state == '村民募集中'">
             <br>
+            <div ng-show="user">
+            {{user.name}}さんの役職は…「{{user.role}}」です！
+            </div>
             <form novalidate class="form-inline" name="joinForm" ng-show="!user" ng-submit="joinVillage()" role="form">
                 <div class="form-group">
                     <label for="inputName" class="control-label">お名前</label>
@@ -52,7 +72,7 @@
             </form>
 
             <hr> 
-            <h3>村民名簿</h3> 
+            <h4>村民一覧</h4> 
             <ul ng-repeat="v in villagers">
                 <li>{{v.name}}</li>
             </ul>
@@ -67,19 +87,34 @@
                 </div>
             </div>
             <div ng-show="tabs.activeTab == '状態'">
+                <div>
+                {{user.name}}さんの役職は…「{{user.role}}」です！
+                </div>
+                <hr>
                 <pre>{{village_state|json}}</pre>
             </div>
             <div ng-show="tabs.activeTab == '村民会'">
-                村民会
+                <div ng-repeat="r in villager_remarks">
+                    {{r.name}}
+                    <pre>{{r.msg}}</pre>
+                </div>
+                <div class="footer navbar-fixed-bottom">
+                    <form novalidate name="villagerForm" ng-submit="sendVillager()" role="form">
+                        <div class="input-group">
+                            <input type="text" class="form-control" name="villagertext" ng-model="villagertext" required ng-maxlength="512">
+                            <span class="input-group-btn">
+                                <button type="submit" class="btn btn-primary">投稿</button>
+                            </span>
+                        </div>
+                    </form>
+                </div>
             </div>
             <div ng-show="tabs.activeTab == '人狼会'">
-                人狼会
             </div>
             <pre>{{tabs|json}}</pre>
         </div>
-        
-
-
+    
     </div>
+
 </body>
 </html>

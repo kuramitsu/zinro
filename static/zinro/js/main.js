@@ -33,16 +33,27 @@ function getJoinname() {
 // https://docs.angularjs.org/api/ng/service/$interval
 // http://blog.morizotter.com/2014/04/08/javascript-setinterval-settimeout/
 zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $interval) {
+    // メニューバー用　http://rails.honobono-life.info/Tutorial_Bootstrap3_AngularJS_NavMenu
+    $scope.isCollapsed = true;
+
+    // 通信関連
     var io_game = io.connect(homeurl + "/game");
     io_game.on('status', function(data) {
         $scope.village = data.village;
         $scope.village_state = data.village_state;
         $scope.villagers = data.villagers;  // 村民一覧  alive:false で死亡
+        $scope.time = data.village_state.time;
         $scope.wantnum = data.wantnum;
         console.log(data);
-        if ($scope.village_state.state == "廃村") {
+        if (data.reset) { // もろもろ初期化
             $scope.user = undefined;
+            $scope.villager_remarks = [];
+            $scope.werewolf_remarks = [];
         }
+    });
+    io_game.on('time', function(data) {
+        $scope.time = data;
+        console.log(data);
     });
     io_game.on('user', function(data) {
         $scope.user = data;
@@ -50,28 +61,44 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
     });
     io_game.on('villager', function(data) {
         console.log(data);   
+        $scope.villager_remarks.push(data);
     });
     io_game.on('werewolf', function(data) {
         console.log(data);   
     });
-    io_game.json.emit('get_status', { key: getZinrokey() });
-
+    // 村民登録関連
     $scope.joinname = getJoinname();
     $scope.joinVillage = function () {
         console.log($scope.joinname);
         io_game.json.emit('join', {
-            "key": getZinrokey(),
-            "name": $scope.joinname 
+            key: getZinrokey(),
+            name: $scope.joinname 
         });
         localStorage.setItem("joinname", $scope.joinname);
     };
+    
+    // Chat関連
+    $scope.villagertext = "";
+    $scope.sendVillager = function () {
+        console.log("send to room_villager");
+        var _data = {
+            key: getZinrokey(),
+            msg: $scope.villagertext
+        }
+        io_game.emit('villager', _data);
+        $scope.villagertext = "";
+    };
+    $scope.villager_remarks = [];   // 村人チャットの発言一覧
+    
+    // 初期状態の取得
+    io_game.json.emit('get_status', { key: getZinrokey() });
 
     // Timer処理
     var stopped;
     $scope.countdown = function() {
         stopped = $interval(function() {
-            if ($scope.village_state.time > 0) {
-                $scope.village_state.time--;
+            if ($scope.time > 0) {
+                $scope.time--;
             }
         }, 1000);
     };

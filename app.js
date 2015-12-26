@@ -48,24 +48,57 @@ io_game.on('connection', function(socket){
     // 村に参加する
     socket.on("join", function(data) {
         console.log(data);
-        addVillager(data.key, data.name); 
-        // 登録情報を返す
-        socket.json.emit("user", getUser(data.key));
-        // 全員に村民が増えたことを通知する
-        io_game.json.emit("status", getStatus());
+        if (village_state.state == "村民募集中") {
+            addVillager(data.key, data.name); 
+            // 登録情報を返す
+            var _user = getUser(data.key);
+            socket.join(room_villager);
+            if (_user.role == "人狼") {
+                socket.join(room_werewolf);
+            }
+            socket.json.emit("user", _user);
+        
+            // 定員に達したらゲームスタート!
+            if (rolebucket.length == 0) {
+                village_state.time = village.nighttime;   // 保険
+                village_state.state = "Playing";
+                nextPhase();
+            }
+        
+            // 全員に村の状態を通知する
+            io_game.json.emit("status", getStatus());
+        }
     });
 
     // チャット関連
-    function send_chatmsg(room, data) {
-        socket.join(room);
-        io_game.to(room).emit(room, room + ": " + data);
-        console.log(room + ": " + data);
+    function send_chatmsg(room, name, msg) {
+        socket.join(room);  // 保険
+        io_game.to(room).emit(room, {
+            name: name,
+            msg: msg
+        });
+        //console.log(room + ": " + data);
     }
     socket.on(room_villager, function(data){
-        send_chatmsg(room_villager, data);
+        // 村民チャットは「いつでも」使える
+        // 死亡してる場合名前が「死者」になって声がかすれる
+        var _sender = villagers[data.key];
+        if (_sender) {  //　村民である
+            var _name = _sender.name;
+            var _msg = data.msg;
+            if (_sender.alive) {    // 生きてる
+                send_chatmsg(room_villager, _name, _msg);
+            } else if (village.zombie) {
+                send_chatmsg(room_villager, settings.zombiename, _msg);
+            }
+        }
+        console.log(data);
     }); 
     socket.on(room_werewolf, function(data){
-        send_chatmsg(room_werewolf, data);
+        // 人狼チャットは「夜のみ」使える
+        // 死亡してる場合名前が「死者」になって声がかすれる
+    
+        console.log("werewolf");
     });
     socket.on('disconnected',function() {
         console.log('disconnected');
@@ -79,7 +112,7 @@ var village = {
     nighttime: 120,
     roles: {
         村人: {
-            num: 2,
+            num: 1,
             camp: "村人",           // 陣営
             divination: "村人",     // 占った時の表示
             chats: [room_villager]
@@ -128,14 +161,48 @@ var village = {
         }
     },
     firstnpc: true,     // 初日犠牲者はNPC
-    roledeath: true     // 初日役職死亡あり
+    roledeath: true,    // 初日役職死亡あり
+    zombie: true,       // 死亡してもチャットに参加できる
+    loss: 0.5           // 欠損率 (ゾンビの会話が…になる箇所)
 }
 var village_state = {
     state: "廃村",      // 廃村 or 村民募集中 or Playing
     days: 0,            // 何日目か
-    phase: "昼",        // 昼 or 夜
+    phase: "吊",        // 昼 => 吊(勝敗判定) => 夜 => 噛(勝敗判定) => 
     time: 0            // 次のフェーズまでの秒数
 }
+
+function nextPhase() {
+    if (village_state.state == "Playing") {
+        switch (village_state.phase) {
+            case "昼":
+                console.log("昼 => 吊");
+                // 投票結果の集計処理
+                village_state.time = settings.hangtime;
+                village_state.phase = "吊";
+                break;
+            case "吊":
+                console.log("吊 => 夜");
+                village_state.time = village.nighttime;
+                village_state.phase = "夜";
+                break;
+            case "夜":
+                console.log("夜 => 噛");
+                village_state.time = settings.bitetime;
+                village_state.phase = "噛";
+                break;
+            case "噛":
+                console.log("噛 => 昼");
+                village_state.time = village.daytime;
+                village_state.days += 1;
+                village_state.phase = "昼";
+                break;
+        }
+        // 全員に通知
+        io_game.json.emit("status", getStatus());
+    }
+}
+
 
 function getVillagersList() {
     var _villagers = [];
@@ -147,6 +214,14 @@ function getVillagersList() {
         _villagers.push(v);
     }
     return _villagers
+}
+
+function getVillagersNum() {
+    var ct = 0;
+    for (var key in villagers) {
+        ct++;
+    }
+    return ct;
 }
    
 function getStatus() {
@@ -161,6 +236,10 @@ function getStatus() {
     return _status;
 }
 
+function getTime() {
+    return village_state.time
+}
+
 function getUser(key) {
     var _user = villagers[key];
     return _user;
@@ -171,13 +250,19 @@ var uptime = 0;
 setInterval(function() {
     if (village_state.state != "廃村" && uptime % 5 == 0) {
         console.log(village_state);
-        io_game.json.emit("status", getStatus()); // 定期的に村の状態全員に送る 
+        io_game.json.emit("time", getTime()); // 定期的に制限時間の同期とる（） 
+        // io_game.json.emit("status", getStatus()); // 定期的に村の状態を全員に送る 
     }
     if (village_state.time > 0) {
         village_state.time -= 1;
     } else {    // 制限時間が過ぎたときの処理
-        if (village_state.state == "村民募集中") {
-            initVillage({}, "廃村");    // 人数が集まらなかったときは廃村
+        switch (village_state.state) {
+            case "村民募集中":
+                initVillage({}, "廃村");    // 人数が集まらなかったときは廃村
+                break;
+            case "Playing":
+                nextPhase();
+                break;
         }
     }
     uptime += 1;
@@ -234,14 +319,15 @@ function getRole() {
 function addVillager(key, name) {
     if (key in villagers) {
         console.log("Duplicate key : " +  key);
-    } else {
-        var villager = {
-            name: name,
-            alive: true,
-            role: getRole()             // ロールの割り当て
-        }
-        villagers[key] = villager; 
+        return;
     }
+    var villager = {
+        name: name,
+        alive: true,
+        role: getRole()             // ロールの割り当て
+    }
+    villagers[key] = villager;
+    return villager;
 } 
 
 function initRolebucket() {
@@ -298,15 +384,12 @@ function initVillage(village_option, state) {
     // オプションの反映
     dictUpdate(village, village_option);
    
-    // 制限時間の設定
-    if (state == "廃村") {
-        village_state.time = 0;
-    } else if (state == "村民募集中") {
-        village_state.time = settings.wanttime;
-    }
+    // 村民の状態初期化
+    initVillager();
     
     // 村の状態初期化 
     village_state.days = 0;
+    village_state.phase = "吊";
     village_state.state = state;
 
     // すべてのチャットルームから強制退去
@@ -316,11 +399,17 @@ function initVillage(village_option, state) {
         leave_all_room(socket);
     });
     
-    // 村民の状態初期化
-    initVillager();
+    // 制限時間の設定
+    if (state == "廃村") {
+        village_state.time = 0;
+    } else if (state == "村民募集中") {
+        village_state.time = settings.wanttime;
+    }
     
     // 全員募集ページへ飛ばす
-    io_game.json.emit("status", getStatus());
+    var _status = getStatus();
+    _status.reset = true;   // クライアント側も初期化させる
+    io_game.json.emit("status", _status);
 }
 
 

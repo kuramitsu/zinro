@@ -18,17 +18,10 @@
     <script src="<%= @static_url %>/zinro/js/main.js"></script>
 </head>
 <body ng-controller="ZinroCtrl">
-    <nav class="navbar navbar-fixed-top navbar-inverse" role="navigation" bs-navbar>
+    <nav id="navheader" class="navbar navbar-fixed-top navbar-inverse" role="navigation" bs-navbar>
         <div class="container">
             <!-- http://rails.honobono-life.info/Tutorial_Bootstrap3_AngularJS_NavMenu  -->
             <div class="navbar-header" ng-init="countdown()">
-                <button type="button" class="navbar-toggle" data-toggle="collapse" ng-click="isCollapsed = !isCollapsed">
-                    <span class="sr-only">Toggle navigation</span>
-                    <span class="icon-bar"></span>
-                    <span class="icon-bar"></span>
-                    <span class="icon-bar"></span>
-                </button>
-                
                 <a ng-show="village_state.state == '廃村'" class="navbar-brand">
                     廃村
                 </a>
@@ -39,19 +32,10 @@
                     {{village_state.days}}日目 {{village_state.phase}} （{{time}}秒）
                 </a>
             </div>
-            <div id="navbar" class="navbar-collapse collapse" collapse="isCollapsed">
-                <ul class="nav navbar-nav">
-                    <li data-match-route="/$"><a href="#/">Home</a></li>
-                    <li data-match-route="/page-one"><a href="#/page-one">Page One</a></li>
-                    <li data-match-route="/page-two.*"><a href="#/page-two/sub-a">Page Two</a></li>
-                </ul>
-            </div>
         </div>
     </nav>
 
-
     <div class="container">
-        
         <div ng-show="village_state.state == '廃村'">
             <br>
             <a href="/init_village">村を作ってください…</a>
@@ -79,40 +63,72 @@
             <pre>{{user|json}}</pre>
             <pre>{{village|json}}</pre>
         </div> 
-
+        
 
         <div ng-show="village_state.state == 'Playing'">
-            <div bs-active-pane="tabs.activeTab" bs-tabs>
-                <div ng-repeat="tab in tabs" title="{{ tab.title }}" name="{{ tab.title }}" disabled="{{ tab.disabled }}" ng-bind="tab.content" bs-pane>
+            <div bs-active-pane="cmds.activeTab" bs-tabs>
+                <div ng-repeat="cmd in cmds" title="{{ cmd }}" name="{{ cmd }}" bs-pane>
                 </div>
             </div>
-            <div ng-show="tabs.activeTab == '状態'">
+            
+            <div class="cmdarea" ng-show="cmds.activeTab == '状態'">
                 <div>
                 {{user.name}}さんの役職は…「{{user.role}}」です！
                 </div>
                 <hr>
                 <pre>{{village_state|json}}</pre>
             </div>
-            <div ng-show="tabs.activeTab == '村民会'">
-                <div ng-repeat="r in villager_remarks">
-                    {{r.name}}
-                    <pre>{{r.msg}}</pre>
+            <div class="cmdarea" ng-show="cmds.activeTab == '村会'">
+                <div id="vchatbox" class="chatbox" ng-style="style_chatbox">
+                    <div ng-repeat="r in villager_remarks">
+                        {{r.name}}
+                        <pre>{{r.msg}}</pre>
+                    </div>
                 </div>
-                <div class="footer navbar-fixed-bottom">
-                    <form novalidate name="villagerForm" ng-submit="sendVillager()" role="form">
-                        <div class="input-group">
-                            <input type="text" class="form-control" name="villagertext" ng-model="villagertext" required ng-maxlength="512">
-                            <span class="input-group-btn">
-                                <button type="submit" class="btn btn-primary">投稿</button>
-                            </span>
-                        </div>
-                    </form>
+                <form novalidate id="vform" name="villagerForm" ng-submit="sendVillager()" role="form">
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="villagertext" ng-model="villagertext" required ng-maxlength="512">
+                        <span class="input-group-btn">
+                            <button type="submit" class="btn btn-primary">投稿</button>
+                        </span>
+                    </div>
+                </form>
+            </div>
+            <div class="cmdarea" ng-show="cmds.activeTab == '狼会'">
+                <div id="wchatbox" class="chatbox" ng-style="style_chatbox">
+                    <div ng-repeat="r in werewolf_remarks">
+                        {{r.name}}
+                        <pre>{{r.msg}}</pre>
+                    </div>
                 </div>
+                <form novalidate id="wform" name="werewolfForm" ng-submit="sendWerewolf()" role="form">
+                    <div class="input-group">
+                        <input type="text" class="form-control" name="werewolftext" ng-model="werewolftext" required ng-maxlength="512">
+                        <span class="input-group-btn">
+                            <button type="submit" class="btn btn-primary">投稿</button>
+                        </span>
+                    </div>
+                </form>
             </div>
-            <div ng-show="tabs.activeTab == '人狼会'">
+            <div class="cmdarea" ng-show="cmds.activeTab == '噛む'">
             </div>
-            <pre>{{tabs|json}}</pre>
+            <div class="cmdarea" ng-show="cmds.activeTab == '占う'">
+            </div>
+            <div class="cmdarea" ng-show="cmds.activeTab == '守る'">
+            </div>
+            <div class="cmdarea" ng-show="cmds.activeTab == '投票'">
+                <form novalidate id="voteform" name="voteForm" ng-submit="vote()" role="form">
+                    <div class="input-group">
+                        <select class="form-control" ng-model="votetarget" ng-options="target for target in votetargets"></select> 
+                        <span class="input-group-btn">
+                            <button type="submit" class="btn btn-primary">投票</button>
+                        </span>
+                    </div>
+                </form>
+            </div>
         </div>
+        
+        
     
     </div>
 

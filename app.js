@@ -49,6 +49,9 @@ io_game.on('connection', function(socket){
     socket.on("join", function(data) {
         console.log(data);
         if (village_state.state == "村民募集中") {
+            if (rolebucket.length == 0) {
+                return;
+            }
             addVillager(data.key, data.name); 
             // 登録情報を返す
             var _user = getUser(data.key);
@@ -97,6 +100,18 @@ io_game.on('connection', function(socket){
     socket.on(room_werewolf, function(data){
         // 人狼チャットは「夜のみ」使える
         // 死亡してる場合名前が「死者」になって声がかすれる
+        var _sender = villagers[data.key];
+        if (_sender) {  //　村民である
+            if (_sender.role == "人狼" && village_state.phase == "夜") { 
+                var _name = _sender.name;
+                var _msg = data.msg;
+                if (_sender.alive) {    // 生きてる
+                    send_chatmsg(room_werewolf, _name, _msg);
+                } else if (village.zombie) {
+                    send_chatmsg(room_werewolf, settings.zombiename, _msg);
+                }
+            }
+        }
     
         console.log("werewolf");
     });

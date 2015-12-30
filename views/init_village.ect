@@ -6,7 +6,7 @@
     <title>人狼</title>
     <link rel="stylesheet" href="<%= @static_url %>/bootstrap-3.3.6-dist/css/bootstrap.min.css">
     <link rel="stylesheet" href="<%= @static_url %>/bootstrap-3.3.6-dist/css/bootstrap-theme.min.css">
-    <link rel="stylesheet" href="<%= @static_url %>/zinro/css/main.css">
+    <link rel="stylesheet" href="<%= @static_url %>/zinro/css/dev.css">
     <!--<script src="<%= @static_url %>/angular/angular.min.js"></script>-->
     <script src="/socket.io/socket.io.js"></script>
     <script src="https://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular.min.js"></script>
@@ -57,7 +57,11 @@
                     <label for="inputVillageRolesWolf" class="control-label">人狼</label>
                     <input id="inputVillageRolesWolf" type="number" class="form-control" style="max-width:50px;" name="roles_wolf" ng-model="village.roles['人狼'].num" ng-init="village.roles['人狼'].num=<%= @village.roles['人狼'].num %>" required>
                     <label for="inputVillageRolesProphet" class="control-label">占い師</label>
-                    <input id="inputVillageRolesPeophet" type="number" class="form-control" style="max-width:50px;" name="roles_prophet" ng-model="village.roles['占い師'].num" ng-init="village.roles['占い師'].num=<%= @village.roles['占い師'].num %>" required>
+                    <input id="inputVillageRolesProphet" type="number" class="form-control" style="max-width:50px;" name="roles_prophet" ng-model="village.roles['占い師'].num" ng-init="village.roles['占い師'].num=<%= @village.roles['占い師'].num %>" required>
+                    <label for="inputVillageRolesMadman" class="control-label">狂人</label>
+                    <input id="inputVillageRolesMadman" type="number" class="form-control" style="max-width:50px;" name="roles_madman" ng-model="village.roles['狂人'].num" ng-init="village.roles['狂人'].num=<%= @village.roles['狂人'].num %>" required>
+                    <label for="inputVillageRolesHunter" class="control-label">狩人</label>
+                    <input id="inputVillageRolesHunter" type="number" class="form-control" style="max-width:50px;" name="roles_hunter" ng-model="village.roles['狩人'].num" ng-init="village.roles['狩人'].num=<%= @village.roles['狩人'].num %>" required>
                 </div>
             </div>
             <div class="form-group form-group-sm">

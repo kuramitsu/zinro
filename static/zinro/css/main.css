@@ -1,15 +1,21 @@
 body {
     overflow-x: hidden; /* Prevent scroll on narrow devices */
-    padding-top: 70px;
+    padding-top: 50px;
 }
+
 .msg-error {
     color: red;
 }
-/*
-.container {
-    padding-right: 0px;
-    padding-left: 0px;
-    margin-right: 0px;
-    margin-left: 0px;
+
+.cmdarea {
+    padding-top: 5px;
 }
-*/
+
+.chatbox {
+    overflow-y: scroll;
+    min-height: 100px;
+    padding: 10px;
+    border: 1px solid #ccc;
+    box-shadow:0 0 5px #fff, 0 0 5px #ccc, 0 0 1px #aaa;
+}
+

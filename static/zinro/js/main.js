@@ -79,14 +79,48 @@ function getChatboxHeight() {
     return _window - _header - _tab - _form;
 }
 
+function getAliveNames(villagers) {
+    var _names = [];
+    for (var i = 0, len = villagers.length; i < len; i++) {
+        var v = villagers[i];
+        if (v.alive) {
+            _names.push(v.name);
+        }
+        console.log(v);
+    }
+    return _names;
+}
 
    
 // 配列アノテーション http://www.buildinsider.net/web/angularjstips/0004
 // https://docs.angularjs.org/api/ng/service/$interval
 // http://blog.morizotter.com/2014/04/08/javascript-setinterval-settimeout/
 zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $interval) {
-    // メニューバー用　http://rails.honobono-life.info/Tutorial_Bootstrap3_AngularJS_NavMenu
-    $scope.isCollapsed = true;
+    // 投票関連
+    $scope.votetarget = "";  // 投票先
+    $scope.votetargets = [];
+    $scope.vote = function() {
+        if (!$scope.votetarget) {
+            return;
+        }
+        io_game.json.emit('vote', {
+            key: getZinrokey(),
+            target: $scope.votetarget  
+        });
+    };
+    // 噛み関連
+    $scope.bitetarget = "";  // 噛み先
+    $scope.bitetargets = [];
+    $scope.bite = function() {
+        if (!$scope.bitetarget) {
+            return;
+        }
+        io_game.json.emit('bite', {
+            key: getZinrokey(),
+            target: $scope.bitetarget  
+        });
+    };
+
 
     // 通信関連
     var io_game = io.connect(homeurl + "/game");
@@ -101,18 +135,26 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
             $scope.user = undefined;
             $scope.villager_remarks = [];
             $scope.werewolf_remarks = [];
+            $scope.votetarget = "";
+            $scope.votetargets = [];
+            $scope.bitetarget = ""; 
+            $scope.bitetargets = [];
         }
+        if (data.village_state.phase == "昼") {
+            // 生きてる人を投票対象にする
+            $scope.votetargets = getAliveNames($scope.villagers);
+        }
+        if (data.village_state.phase == "夜") {
+            // 生きてる人を噛み先対象にする
+            $scope.bitetargets = getAliveNames($scope.villagers);
+        }
+
         if ($scope.user) { // cmds更新
             $scope.cmds = getCmds($scope.user.role, $scope.village_state.phase);
             console.log($scope.cmds);
         }
-        // 
-        if (data.votetargets) {  // 投票先
-            $scope.votetargets = data.votetargets;   
-        }
-        if (data.bite) {  // 噛まれ先
 
-        }
+
     });
     io_game.on('vote', function(data) {
         
@@ -151,20 +193,7 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
         localStorage.setItem("joinname", $scope.joinname);
     };
     
-    // 投票
-    $scope.votetarget = "";  // 投票先
-    $scope.votetargets = [];
-    $scope.vote = function() {
-        if (!$scope.votetarget) {
-            return;
-        }
-        io_game.json.emit('vote', {
-            key: getZinrokey(),
-            target: $scope.votetarget  
-        });
-    };
     
-    $scope.bite = {};  // 日ごとの噛み先
 
     // コマンド
     $scope.cmds =  [];

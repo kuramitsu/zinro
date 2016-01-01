@@ -35,7 +35,7 @@
         </div>
     </nav>
 
-    <div class="container">
+    <div class="container" ng-style="style_container">
         <div ng-show="village_state.state == '廃村'">
             <br>
             <a href="/init_village">村を作ってください…</a>
@@ -111,6 +111,14 @@
                 </form>
             </div>
             <div class="cmdarea" ng-show="cmds.activeTab == '噛む'">
+                <form novalidate id="biteform" name="biteForm" ng-submit="bite()" role="form">
+                    <div class="input-group">
+                        <select class="form-control" ng-model="bitetarget" ng-options="target for target in bitetargets"></select> 
+                        <span class="input-group-btn">
+                            <button type="submit" class="btn btn-primary">噛む</button>
+                        </span>
+                    </div>
+                </form>
             </div>
             <div class="cmdarea" ng-show="cmds.activeTab == '占う'">
             </div>

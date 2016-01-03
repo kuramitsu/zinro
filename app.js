@@ -29,18 +29,83 @@ function zombieText(text, loss) {     // 元の文字列をランダムに欠損
     var _val = "…";
     for (var repnum = _len * loss; repnum > 0; repnum--) {
         var n = Math.floor(Math.random() * _len);
-        console.log(repnum);
-        console.log(n);
         text = replaceText(text, n, _val);
     }
     return text;
 }
 
+// 勝敗チェック
+function getGameStatus() {
+    // 各陣営の人数チェック
+    var _gamestatus = undefined;
+    var victory = undefined;
+    var campct = {
+        "村人": 0,
+        "人狼": 0,
+        "妖狐": 0
+    }
+    for (var key in villagers) {
+        var _v = villagers[key];
+        if (_v.alive == false) {
+            continue;
+        }
+        if (_v.role == "人狼") {
+            campct["人狼"] += 1;
+        } else if (_v.role == "妖狐"){
+            campct["妖狐"] += 1;
+        } else {
+            campct["村人"] += 1;
+        }
+    }
+
+    if (campct["村人"] <= campct["人狼"]) { // 人狼または妖狐の勝利
+        if (campct["妖狐"] > 0) {
+            victory = "妖狐";
+        } else {
+            victory = "人狼";
+        }
+    } else if (campct["人狼"] == 0) {   // 村人または妖狐の勝利
+        if (campct["妖狐"] > 0) {
+            victory = "妖狐";
+        } else {
+            victory = "村人";
+        }
+    }
+
+    if (victory) {  // 勝敗が決まった場合
+        var _winners = []; 
+        var _losers = [];
+        for (var key in villagers) {
+            var _v = villagers[key];
+            var _camp = village.roles[_v.role].camp;
+            if (_camp == victory) {
+                _winners.push(_v);
+            } else {
+                _losers.push(_v);
+            }
+        }
+        _gamestatus = {
+            victory: victory,
+            winners: _winners,
+            losers: _losers
+        }
+    }
+    return _gamestatus;
+}
+
+//
+var gamestatus = undefined;
 
 
 // 噛関連 ======================================================
 var bitetargets = {};   // 日 => target名
+var divinestatus = {};  // 日 => 対象の名前と役職
 var guardtargets = {};  // 日 => target名　// 守る対象（誰でもOK）
+
+// 吊、噛まれた人
+var votestatus = {};    // 吊  日 => status
+var victim = {};        // 噛　日 => target
+
 
 
 
@@ -53,7 +118,6 @@ var room_sharer = 'sharer';
 function send_chat(socket, room, data) {
     socket.join(room);
     io_game.to(room).emit(room, room + ": " + data);
-    // console.log(room + ": " + data);
 }
 function leave_all_room(socket) {
     socket.leave(room_villager);
@@ -67,7 +131,6 @@ io_game.on('connection', function(socket){
         socket.json.emit("status", getStatus());
     });
     socket.on("get_user", function(data) {
-        console.log(data.key);   
         if (data.key in villagers) {
             socket.join(room_villager);
             // ユーザー自身の情報を返す
@@ -76,8 +139,7 @@ io_game.on('connection', function(socket){
                 socket.join(room_werewolf);
                 var _wstatus = getWerewolfStatus();
                 io_game.to(room_werewolf).emit("werewolfstatus", _wstatus);
-            }
-            console.log(_user);
+            } 
             socket.json.emit("user", _user);
         } else if (village_state.state == "Playing") {
             socket.join(room_villager);
@@ -91,7 +153,6 @@ io_game.on('connection', function(socket){
     });
     // 村に参加する
     socket.on("join", function(data) {
-        console.log(data);
         if (village_state.state == "村民募集中") {
             if (rolebucket.length == 0) {
                 return;
@@ -120,9 +181,11 @@ io_game.on('connection', function(socket){
     });
     // 投票する
     socket.on("vote", function(data) {
-        console.log(data);
         var _v = getUser(data.key);
         var _t = getUserFromName(data.target);
+        if (village_state.phase != "昼") {  // 夜のみ有効
+            return;
+        }
         // 投票権限がある人物か判定
         if (!(_v && _t)) {  // 噛み元や噛み先が村民じゃない
             return;
@@ -133,11 +196,43 @@ io_game.on('connection', function(socket){
         _v.votetargets[village_state.days] = data.target;   // 集計対象は名前のみ
         socket.json.emit("voteselected", data.target);
     });
-    // 投票する
-    socket.on("bite", function(data) {
-        console.log(data);
+    // 占う
+    socket.on("divine", function(data) {
         var _v = getUser(data.key);
         var _t = getUserFromName(data.target);
+        if (village_state.phase != "夜") {  // 夜のみ有効
+            return;
+        }
+        // 占い権限がある人物か判定
+        if (!(_v && _t)) {  // 噛み元や噛み先が村民じゃない
+            return;
+        }
+        if (!(_v.alive)) {  // すでに死んでる
+            return;
+        }
+        if (_v.role != "占い師") {    // 占い師じゃない
+            return;
+        }
+        // まだ占っていないときのみ占う
+        if (!divinestatus[village_state.days]) {
+            divinestatus[village_state.days] = {
+                name: _t.name,
+                divination: village.roles[_t.role].divination
+            }
+            if (_t.role == "妖狐") {    // 妖狐は死亡する
+                _t.alive = false;
+                victim[village_state.days] = [_t.name];
+            }
+        } 
+        socket.json.emit("divinestatus", divinestatus);
+    });
+    // 噛む
+    socket.on("bite", function(data) {
+        var _v = getUser(data.key);
+        var _t = getUserFromName(data.target);
+        if (village_state.phase != "夜") {  // 夜のみ有効
+            return;
+        }
         // 噛む権限がある人物か判定
         if (!(_v && _t)) {  // 噛み元や噛み先が村民じゃない
             return;
@@ -153,9 +248,30 @@ io_game.on('connection', function(socket){
         }
         // 妖狐　狩人の判定は「噛」フェーズで実施
         bitetargets[village_state.days] = _t;
-        console.log(bitetargets);
         io_game.to(room_werewolf).emit("biteselected", data.target);  // 人狼全員に送付
-        console.log("send target:" + data.target);
+    });
+    // 守る
+    socket.on("guard", function(data) {
+        var _v = getUser(data.key);
+        var _t = getUserFromName(data.target);
+        if (village_state.phase != "夜") {  // 夜のみ有効
+            return;
+        }
+        // 守る権限がある人物か判定
+        if (!(_v && _t)) {  // 噛み元や噛み先が村民じゃない
+            return;
+        }
+        if (!(_v.alive && _t.alive)) {  // どっちかすでに死んでる
+            return;
+        }
+        if (_v.role != "狩人") {    // 守り元が狩人じゃない
+            return;
+        }
+        if (_t.role == "狩人") {    // 守り先が狩人
+            return;
+        }
+        guardtargets[village_state.days] = _t;
+        socket.json.emit("guardselected", data.target);     // 
     });
 
     // チャット関連
@@ -165,7 +281,6 @@ io_game.on('connection', function(socket){
             name: name,
             msg: msg
         });
-        //console.log(room + ": " + data);
     }
     socket.on(room_villager, function(data){
         // 村民チャットは「いつでも」使える
@@ -182,7 +297,6 @@ io_game.on('connection', function(socket){
                     zombieText(_msg, village.loss));
             }
         }
-        console.log(data);
     }); 
     socket.on(room_werewolf, function(data){
         // 人狼チャットは「夜のみ」使える
@@ -201,21 +315,20 @@ io_game.on('connection', function(socket){
                 }
             }
         }
-    
-        console.log("werewolf");
     });
     socket.on('disconnected',function() {
         console.log('disconnected');
     }); 
 });
 
+
 // 村の状態管理 ==================================================
 var village = {
     name: "ナカヨシ村",
-    //daytime: 120,
-    //nighttime: 120,
-    daytime: 10,
-    nighttime: 10,
+    daytime: settings.daytime,
+    nighttime: settings.nighttime,
+    hangtime: settings.hangtime,
+    bitetime: settings.bitetime,
     roles: {
         村人: {
             num: 1,
@@ -236,7 +349,7 @@ var village = {
             chats: [room_villager, room_werewolf]
         },
         狂人: {
-            num: 0,
+            num: 1,
             camp: "人狼",
             divination: "村人",
             chats: [room_villager]
@@ -272,11 +385,50 @@ var village = {
     loss: 0.5           // 欠損率 (ゾンビの会話が…になる箇所)
 }
 var village_state = {
-    state: "廃村",      // 廃村 or 村民募集中 or Playing or 決着
-    days: 0,            // 何日目か
+    state: "廃村",      // 廃村 or 村民募集中 or Playing or 終戦
+    days: 1,            // 何日目か
     phase: "吊",        // 昼 => 吊(勝敗判定) => 夜 => 噛(勝敗判定) => 
     time: 0            // 次のフェーズまでの秒数
 }
+
+
+// 投票集計関数
+function countVote(day) {
+    var _hangedman = undefined;
+    var _votetbl = {};
+    var _max = 0;
+    for (var key in villagers) {
+        var _v = villagers[key];
+        if (_v.alive == false) {    // 死人は投票できない
+            continue;
+        }
+        var _target = _v.votetargets[day];
+        if (_target) {
+            if (!(_target in _votetbl)) {
+                _votetbl[_target] = [];
+            }
+            _votetbl[_target].push(_v.name);    // 投票者
+        }
+    }
+    // 処刑対象を決める
+    for (var _target in _votetbl) {
+        var _ct = _votetbl[_target].length;
+        if (_ct > _max) {
+            _hangedman = _target;
+            _max = _ct;
+        } else if (_ct == _max) {       // 同数ならランダムにどっちか
+            if (Math.random() < 0.5) {  // 1/2 で入れ替え
+                _hangedman = _target;
+            }
+        }
+    }
+    var _votestatus = {
+        hangedman: _hangedman,
+        votetbl: _votetbl
+    };
+    return _votestatus;
+}
+
 
 function nextPhase() {
     if (village_state.state == "Playing") {
@@ -284,24 +436,33 @@ function nextPhase() {
             case "昼":
                 console.log("昼 => 吊");
                 // 投票結果の集計処理
-                village_state.time = settings.hangtime;
-                village_state.phase = "吊";
+                var _vstatus = countVote(village_state.days);
+                votestatus[village_state.days] = _vstatus;
+                if (_vstatus.hangedman) {
+                    var _hangedman = getUserFromName(_vstatus.hangedman);
+                    _hangedman.alive = false;      // 死亡
+                    village_state.time = village.hangtime;
+                    village_state.phase = "吊";
+                } else {        // 投票なしは強制的に廃村にする
+                    initVillage({}, "廃村");
+                }
                 break;
             case "吊":
                 console.log("吊 => 夜");
                 village_state.time = village.nighttime;
                 village_state.phase = "夜";
+                gamestatus = getGameStatus();
                 break;
             case "夜":
                 console.log("夜 => 噛");
-                village_state.time = settings.bitetime;
+                village_state.time = village.bitetime;
                 village_state.phase = "噛";
                 // ターゲットを噛む
                 // 狩人の守り対象取得
                 var _victim = undefined;    // 犠牲者
                 var _g = guardtargets[village_state.days];
                 var _b = bitetargets[village_state.days];
-                if (_b) {   // 噛先が指定されている
+                if (_b && _b.role != "妖狐") {   // 妖狐以外の噛先が指定されている
                     if (_g) {   // 守り先が指定されている
                         if (_g.name != _b.name) {   // 守り先が外れてる
                             _victim = _b;
@@ -311,18 +472,31 @@ function nextPhase() {
                     }
                 }
                 if (_victim) {
-                    _victim.alive = false;      // 死亡
-                    console.log(_victim.name + "が無残な姿で発見されました。");
-                } else {
-                    console.log("犠牲者はいませんでした。");
-                }
+                    _victim.alive = false;      // 人狼による殺害
+                    if (victim[village_state.days]) {   // すでに占いによって妖狐が死んでる場合
+                        if (victim[village_state.days][0] != _victim.name) {    // 対象が異なる場合のみ
+                            if (Math.random() < 0.5) {  // 1/2 で先頭に挿入
+                                victim[village_state.days].unshift(_victim.name);
+                            } else {
+                                victim[village_state.days].push(_victim.name);
+                            }
+                        }
+                    } else {
+                        victim[village_state.days] = [_victim.name];
+                    }
+                } 
                 break;
             case "噛":
                 console.log("噛 => 昼");
                 village_state.time = village.daytime;
                 village_state.days += 1;
                 village_state.phase = "昼";
+                gamestatus = getGameStatus();
                 break;
+        }
+        if (gamestatus) {   // 勝敗が決してたら
+            console.log(gamestatus);
+            village_state.state = "終戦";
         }
         // 全員に通知
         io_game.json.emit("status", getStatus());
@@ -357,7 +531,10 @@ function getStatus() {
         village: village,
         village_state: village_state,
         villagers: _vlist, 
-        wantnum: _wantnum
+        wantnum: _wantnum,
+        victim: victim,
+        votestatus: votestatus,
+        gamestatus: gamestatus
     };
     return _status;
 }
@@ -404,7 +581,7 @@ function getUserFromName(name) {
 
 var uptime = 0;
 setInterval(function() {
-    if (village_state.state != "廃村" && uptime % 5 == 0) {
+    if (village_state.state != "廃村" && village_state.state != "終戦" && uptime % 5 == 0) {
         console.log(village_state);
         io_game.json.emit("time", getTime()); // 定期的に制限時間の同期とる（） 
         // io_game.json.emit("status", getStatus()); // 定期的に村の状態を全員に送る 
@@ -446,8 +623,9 @@ function addNPC(roledeath) {
     addVillager(settings.npckey, settings.npcname); 
     npc = getUser(settings.npckey);
     
-    if (npc.role == "人狼") {
-        changeNGRole(npc, "人狼");
+    if (npc.role == "人狼" || npc.role == "妖狐") {
+        //changeNGRole(npc, "人狼");
+        changeNGRoles(npc, ["人狼", "妖狐"]);
     } else if (roledeath == false && npc.role != "村人") {
         changeRole(npc, "村人");
     }
@@ -469,6 +647,25 @@ function changeNGRole(villager, ngrole) {
     for (var i = 0, len = rolebucket.length; i < len; i++) {
         if (ngrole != rolebucket[i]) {
             var _role = rolebucket[i];
+            rolebucket[i] = villager.role;
+            villager.role = _role;
+            break; 
+        }
+    }
+}
+// 指定以外の役職に変更する (rolebucketから検索して交代。空ならそのまま)
+function changeNGRoles(villager, ngroles) {
+    for (var i = 0, len = rolebucket.length; i < len; i++) {
+        var _role = rolebucket[i]; 
+        var _change = true;
+        for (var k = 0, rlen = ngroles.length; k < rlen; k++) {
+            var _ngrole = ngroles[k];
+            if (_role == _ngrole) {     // 一つでもNGなら駄目
+                _change = false;
+                break;
+            }
+        }
+        if (_change) {
             rolebucket[i] = villager.role;
             villager.role = _role;
             break; 
@@ -557,9 +754,17 @@ function initVillage(village_option, state) {
     initVillager();
     
     // 村の状態初期化 
-    village_state.days = 0;
+    village_state.days = 1;
     village_state.phase = "吊";
     village_state.state = state;
+
+    bitetargets = {};   // 日 => target名
+    divinestatus = {};
+    guardtargets = {};  // 日 => target名
+    votestatus = {};   // 吊  日 => status
+    victim = {};      // 噛　日 => targets (妖狐含めて複数ありえる)
+
+    gamestatus = undefined;
 
     // すべてのチャットルームから強制退去
     // http://stackoverflow.com/questions/30570658/how-to-disconnect-all-sockets-serve-side-using-socket-io
@@ -617,26 +822,6 @@ app.get('/zinro', function (req, res) {
         static_url: settings.static_url
     });
 });
-
-var chat = io.of('/chat');
-chat.on('connection', function(socket){
-    socket.on('emit_from_client', function(data){
-        socket.join(data.room);
-        // socket.emit("emit_from_server", "you are in " + data.room);
-        // socket.broadcast.to(data.room).emit("emit_from_server", data.msg);
-        chat.to(data.room).emit("emit_from_server", socket.id + " " + data.msg);
-        // io.to(data.room).emit("emit_from_server", data.msg);
-
-        console.log(data);
-        // 接続してるやつのみ 
-        // socket.emit('emit_from_server', 'hello from server: ' + data); 
-        // 接続してるソケット以外全部
-        // socket.broadcast.emit('emit_from_server', 'hello from server: ' + data); 
-        // 接続してるやつ全部
-        // io.sockets.emit('emit_from_server', socket.id + ": " + data); 
-    }); 
-});
-
 
 
 server.listen(settings.port, function () {

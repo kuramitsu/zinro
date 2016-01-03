@@ -22,6 +22,9 @@
         <div class="container">
             <!-- http://rails.honobono-life.info/Tutorial_Bootstrap3_AngularJS_NavMenu  -->
             <div class="navbar-header" ng-init="countdown()">
+                <a ng-show="village_state.state == '終戦'" class="navbar-brand">
+                    終戦
+                </a>
                 <a ng-show="village_state.state == '廃村'" class="navbar-brand">
                     廃村
                 </a>
@@ -36,6 +39,23 @@
     </nav>
 
     <div class="container">
+        <div ng-show="village_state.state == '終戦'">
+            <br>
+            <h4><b>「{{gamestatus.victory}}」</b>陣営の勝利！</h4>
+            <hr>
+            <h4>勝者</h4>
+            <ul ng-repeat="v in gamestatus.winners">
+                <li>{{v.name}} 【{{v.role}}】</li>
+            </ul>
+            <h4>敗者</h4>
+            <ul ng-repeat="v in gamestatus.losers">
+                <li>{{v.name}} 【{{v.role}}】</li>
+            </ul>
+            <hr>
+            <br>
+            <a href="/init_village">もう一度 村を作る！</a>
+        </div> 
+        
         <div ng-show="village_state.state == '廃村'">
             <br>
             <a href="/init_village">村を作ってください…</a>
@@ -60,12 +80,45 @@
             <ul ng-repeat="v in villagers">
                 <li>{{v.name}}</li>
             </ul>
-            <pre>{{user|json}}</pre>
-            <pre>{{village|json}}</pre>
+            <h4>役職一覧</h4>
+            <ul ng-repeat="(key, val) in village.roles">
+                <li ng-if="val.num > 0">
+                    {{key}}: {{val.num}}人
+                </li>
+            </ul>
         </div> 
         
 
         <div ng-show="village_state.state == 'Playing'">
+            <div ng-show="village_state.phase == '吊'">
+                <br>
+                <div ng-if="votestatus[village_state.days].hangedman">
+                    <h4><b>「{{votestatus[village_state.days].hangedman}}」</b>が処刑されました。</h4>
+                    <hr>
+                    <h4>投票結果</h4>
+                    <ul ng-repeat="(target, vorters) in votestatus[village_state.days].votetbl">
+                        <li>
+                            <b>{{target}}</b> &lt;= <span ng-repeat="vorter in vorters">{{vorter}}{{$last ? '' : ', '}}</span>
+                        </li>
+                    </ul>
+                </div>
+                <div ng-if="!votestatus[village_state.days].hangedman">
+                    本日の処刑者はいませんでした。
+                </div>
+            </div>
+            <div ng-show="village_state.phase == '噛'">
+                <br>
+                <div ng-if="victim[village_state.days]">
+                    <h4>
+                    <span ng-repeat="v in victim[village_state.days]">「{{v}}」{{$last ? '' : ', '}}</span>
+                    が無残な姿で発見されました。
+                    </h4>
+                </div>
+                <div ng-if="!victim[village_state.days]">
+                    本日の犠牲者はいませんでした。
+                </div>
+            </div>
+            
             <div bs-active-pane="cmds.activeTab" bs-tabs>
                 <div ng-repeat="cmd in cmds" title="{{ cmd }}" name="{{ cmd }}" bs-pane>
                 </div>
@@ -73,10 +126,24 @@
             
             <div class="cmdarea" ng-show="cmds.activeTab == '状態'">
                 <div>
-                {{user.name}}さんの役職は…「{{user.role}}」です！
+                {{user.name}}さんの役職は…<b>「{{user.role}}」</b>です！
                 </div>
                 <hr>
-                <pre>{{village_state|json}}</pre>
+                <h4>村民一覧</h4> 
+                <ul ng-repeat="v in villagers">
+                    <li>
+                        <span ng-if="!v.alive">
+                         【死亡】 
+                        </span>  
+                        {{v.name}}
+                    </li>
+                </ul>
+                <h4>役職一覧</h4>
+                <ul ng-repeat="(key, val) in village.roles">
+                    <li ng-if="val.num > 0">
+                        {{key}}: {{val.num}}人
+                    </li>
+                </ul>
             </div>
             <div class="cmdarea" ng-show="cmds.activeTab == '村会'">
                 <div id="vchatbox" class="chatbox" ng-style="style_chatbox">
@@ -124,8 +191,30 @@
                 </form>
             </div>
             <div class="cmdarea" ng-show="cmds.activeTab == '占う'">
+                <div ng-show="divinestatus[village_state.days]">
+                    「{{divinestatus[village_state.days].name}}」 は　<b>「{{divinestatus[village_state.days].divination}}」</b> でした。
+                </div>
+                <form ng-show="!divinestatus[village_state.days]" novalidate id="divineform" name="divineForm" ng-submit="divine()" role="form">
+                    <div class="input-group">
+                        <select class="form-control" ng-model="divinetarget" ng-options="target for target in divinetargets"></select> 
+                        <span class="input-group-btn">
+                            <button type="submit" class="btn btn-primary">占う</button>
+                        </span>
+                    </div>
+                </form>
             </div>
             <div class="cmdarea" ng-show="cmds.activeTab == '守る'">
+                <div ng-show="guardselected">
+                    今晩は「{{guardselected}}」を護衛します。
+                </div>
+                <form ng-show="!guardselected" novalidate id="guardform" name="guardForm" ng-submit="guard()" role="form">
+                    <div class="input-group">
+                        <select class="form-control" ng-model="guardtarget" ng-options="target for target in guardtargets"></select> 
+                        <span class="input-group-btn">
+                            <button type="submit" class="btn btn-primary">守る</button>
+                        </span>
+                    </div>
+                </form>
             </div>
             <div class="cmdarea" ng-show="cmds.activeTab == '投票'">
                 <div ng-show="voteselected">

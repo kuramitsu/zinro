@@ -23,7 +23,15 @@ var rolecmds = {
         昼: ["状態", "村会", "投票"],
         夜: ["状態", "村会", "守る"]
     },
+    妖狐: {
+        昼: ["状態", "村会", "投票"],
+        夜: ["状態", "村会"]
+    },
     観測者: {
+        昼: ["状態", "村会"],
+        夜: ["状態", "村会"]   
+    },
+    死者: {
         昼: ["状態", "村会"],
         夜: ["状態", "村会"]   
     }
@@ -77,9 +85,6 @@ function getChatboxHeight() {
     var _form = 35;
     // var _header = document.getElementById("navheader").clientHeight;
     // var _form = document.getElementById("vform").clientHeight;
-    console.log(_window);
-    console.log(_header);
-    console.log(_form);
     return _window - _header - _tab - _form;
 }
 function getAliveOthers(villagers, me) {
@@ -89,7 +94,6 @@ function getAliveOthers(villagers, me) {
         if (v.alive && v.name != me) {
             _names.push(v.name);
         }
-        console.log(v);
     }
     return _names;
 }
@@ -103,7 +107,6 @@ function getAliveHumans(villagers, werewolves) {
                 _names.push(v.name);   
             }
         }
-        console.log(v);
     }
     return _names;
 }
@@ -126,6 +129,7 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
             target: $scope.votetarget  
         });
     };
+    $scope.votestatus = {};      // 日 => status
     // 噛み関連
     $scope.bitetarget = "";  // 噛み先
     $scope.bitetargets = [];
@@ -139,7 +143,33 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
             target: $scope.bitetarget  
         });
     };
-
+    $scope.victim = {};     // 日 => 名前一覧（噛まれた OR 占われた）
+    // 守り関連
+    $scope.guardtarget = "";  // 噛み先
+    $scope.guardtargets = [];
+    $scope.guardselected = undefined;
+    $scope.guard = function() {
+        if (!$scope.guardtarget) {
+            return;
+        }
+        io_game.json.emit('guard', {
+            key: getZinrokey(),
+            target: $scope.guardtarget  
+        });
+    };
+    // 占い関連
+    $scope.divinetarget = "";   // 占い先
+    $scope.divinetargets = [];
+    $scope.divinestatus = {};  // 日 => {name, divination}
+    $scope.divine = function() {
+        if (!$scope.divinetarget) {
+            return;
+        }
+        io_game.json.emit('divine', {
+            key: getZinrokey(),
+            target: $scope.divinetarget  
+        });
+    };
 
     // 通信関連
     var io_game = io.connect(homeurl + "/game");
@@ -149,6 +179,7 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
         $scope.villagers = data.villagers;  // 村民一覧  alive:false で死亡
         $scope.time = data.village_state.time;
         $scope.wantnum = data.wantnum;
+        $scope.gamestatus = data.gamestatus;
         console.log(data);
         if (data.reset) { // もろもろ初期化
             $scope.user = undefined;
@@ -161,6 +192,15 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
             $scope.bitetarget = ""; 
             $scope.bitetargets = [];
             $scope.biteselected = undefined;
+            $scope.guardtarget = ""; 
+            $scope.guardtargets = [];
+            $scope.guardselected = undefined;
+            $scope.votestatus = {};   // 吊られた人
+            $scope.victim = {};      // 噛まれた人
+            $scope.divinetarget = "";
+            $scope.divinetargets = [];
+            $scope.divinestatus= {};    // 占われた人
+            $scope.gamestatus = undefined;
         }
         // ユーザー情報取得が間に合わんか？ 報告フェーズでいけるとは思うが
         io_game.json.emit('get_user', { key: getZinrokey() });
@@ -175,60 +215,76 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
                     $scope.votetargets = getAliveOthers($scope.villagers);
                 }
                 break;
+            case "吊":
+                $scope.votestatus = data.votestatus;   // 投票情報
+                break;
             case "夜":
-                console.log($scope.user);
                 if ($scope.user && $scope.user.role == "人狼") {   // 人狼なら
                     $scope.biteselected = undefined;
                 }
+                if ($scope.user && $scope.user.role == "占い師") {   // 占い師なら
+                    $scope.divinetargets = getAliveOthers($scope.villagers, $scope.user.name);
+                }
+                if ($scope.user && $scope.user.role == "狩人") {   // 狩人なら
+                    $scope.guardtargets = getAliveOthers($scope.villagers, $scope.user.name);
+                    $scope.guardselected = undefined;
+                }
                 break;
             case "噛":
+                $scope.victim = data.victim;      // 噛まれた人
                 break;
         }
         if ($scope.user) { // cmds更新
-            $scope.cmds = getCmds($scope.user.role, $scope.village_state.phase);
-            console.log($scope.cmds);
+            if ($scope.user.alive) {
+                $scope.cmds = getCmds($scope.user.role, $scope.village_state.phase);
+            } else {
+                $scope.cmds = getCmds("死者", $scope.village_state.phase);
+            }
+            if ($scope.cmds.length > 0) {
+                $scope.cmds.activeTab = "状態";
+            }
         }
     });
     io_game.on('werewolfstatus', function(data) {
-        console.log(data);
         $scope.werewolves = data.werewolves;
         $scope.bitetargets = getAliveHumans($scope.villagers, $scope.werewolves);
     });
     io_game.on('voteselected', function(data) {
-        console.log(data);
         $scope.voteselected = data;
     });
     io_game.on('biteselected', function(data) {
-        console.log(data);
         $scope.biteselected = data;
+    });
+    io_game.on('guardselected', function(data) {
+        $scope.guardselected = data;
+    });
+    io_game.on('divinestatus', function(data) {
+        $scope.divinestatus = data; 
     });
     io_game.on('time', function(data) {
         $scope.time = data;
-        console.log(data);
     });
     io_game.on('user', function(data) {
         $scope.user = data;
-        $scope.cmds = getCmds($scope.user.role, $scope.village_state.phase);
         if ($scope.user.alive) {    // 生きてる
+            $scope.cmds = getCmds($scope.user.role, $scope.village_state.phase);
             $scope.style_body = {
                 "background-color": "white"
             };
         } else {    // 死んでる
+            $scope.cmds = getCmds("死者", $scope.village_state.phase);
             $scope.style_body = {
                 "background-color": "red"
             };
         }
-        console.log(data);
     });
     io_game.on('villager', function(data) {
-        console.log(data);   
         $scope.villager_remarks.push(data);
         setTimeout(function () {
             goBottom("vchatbox");
         }, 800);
     });
     io_game.on('werewolf', function(data) {
-        console.log(data);   
         $scope.werewolf_remarks.push(data);
         setTimeout(function () {
             goBottom("wchatbox");
@@ -237,16 +293,12 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
     // 村民登録関連
     $scope.joinname = getJoinname();
     $scope.joinVillage = function () {
-        console.log($scope.joinname);
         io_game.json.emit('join', {
             key: getZinrokey(),
             name: $scope.joinname 
         });
         localStorage.setItem("joinname", $scope.joinname);
     };
-    
-    
-
     // コマンド
     $scope.cmds =  [];
     
@@ -257,7 +309,6 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
         if (! $scope.villagertext) {     // 空文字の送信はしない
             return; 
         }
-        console.log("send to room_villager");
         var _data = {
             key: getZinrokey(),
             msg: $scope.villagertext
@@ -269,7 +320,6 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
         if (! $scope.werewolftext) {     // 空文字の送信はしない
             return; 
         }
-        console.log("send to room_werewolf");
         var _data = {
             key: getZinrokey(),
             msg: $scope.werewolftext
@@ -297,31 +347,6 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
         $interval.cancel(stopped);
     };
 
-    //io_game.emit('villager', "TEST IO!");
-    //io_game.emit('werewolf', "WOLF IO!");
-    //io_game.emit('villager', "Villager IO!");
-
-    
-    /*
-    [
-        {
-            "title": "状態"
-        },
-        {
-            "title": "村会"
-        },
-        {
-            "title": "狼会"
-        },
-        {
-            "title": "投票"
-        },
-        {
-            "title": "噛む"
-        }
-    ]
-    */
-    // $scope.cmds.activeTab = "状態";
     
     // Style関連
     $scope.style_body = {
@@ -330,7 +355,6 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
     $scope.style_chatbox = {
         height: getChatboxHeight() + "px"
     };
-    console.log($scope.style_chatbox);
     var resizeTimer = false;
     window.addEventListener('resize', function (event) {
         if (resizeTimer !== false) {
@@ -338,7 +362,6 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
         }
         resizeTimer = setTimeout(function () {
             $scope.style_chatbox.height = getChatboxHeight() + "px";
-            console.log($scope.style_chatbox);
         }, 500);
     });
 }]);
@@ -350,7 +373,6 @@ zinroApp.controller('VillageCtrl', function($scope, $http) {
         $http.post(
             '/init_village', $scope.village
         ).success(function(data) {
-            console.log("posted successfully");
             window.location.href = '/zinro';
         }).error(function(data) {
             console.error("error in posting");
@@ -360,7 +382,6 @@ zinroApp.controller('VillageCtrl', function($scope, $http) {
         $http.post(
             '/destroy_village'
         ).success(function(data) {
-            console.log("posted successfully");
             window.location.reload(true);
         }).error(function(data) {
             console.error("error in posting");
@@ -369,10 +390,6 @@ zinroApp.controller('VillageCtrl', function($scope, $http) {
     $scope.joinVillage = function() {
         window.location.href = '/zinro';
     };
-
-
-
-
 });
 
 

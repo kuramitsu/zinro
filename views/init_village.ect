@@ -48,7 +48,21 @@
                     <input id="inputVillageNighttime" type="number" class="form-control" style="max-width:100px;" name="nighttime" ng-model="village.nighttime" ng-init="village.nighttime=<%= @village.nighttime %>" required>
                     <span class="msg-error" ng-show="initForm.nighttime.$error.required">Required!</span>
                 </div>
-            </div> 
+            </div>
+            <div class="form-group form-group-sm">
+                <label for="inputVillageHangtime" class="col-sm-2 control-label">吊時間（秒）</label>
+                <div class="col-sm-10">
+                    <input id="inputVillageHangtime" type="number" class="form-control" style="max-width:100px;" name="nighttime" ng-model="village.hangtime" ng-init="village.hangtime=<%= @village.hangtime %>" required>
+                    <span class="msg-error" ng-show="initForm.hangtime.$error.required">Required!</span>
+                </div>
+            </div>
+            <div class="form-group form-group-sm">
+                <label for="inputVillagebitetime" class="col-sm-2 control-label">噛時間（秒）</label>
+                <div class="col-sm-10">
+                    <input id="inputVillageBitetime" type="number" class="form-control" style="max-width:100px;" name="nighttime" ng-model="village.bitetime" ng-init="village.bitetime=<%= @village.bitetime %>" required>
+                    <span class="msg-error" ng-show="initForm.bitetime.$error.required">Required!</span>
+                </div>
+            </div>  
             <div class="form-group form-group-sm">
                 <label for="inputVillageRoles" class="col-sm-2 control-label">構成員</label>
                 <div class="col-sm-10 form-inline">
@@ -62,6 +76,8 @@
                     <input id="inputVillageRolesMadman" type="number" class="form-control" style="max-width:50px;" name="roles_madman" ng-model="village.roles['狂人'].num" ng-init="village.roles['狂人'].num=<%= @village.roles['狂人'].num %>" required>
                     <label for="inputVillageRolesHunter" class="control-label">狩人</label>
                     <input id="inputVillageRolesHunter" type="number" class="form-control" style="max-width:50px;" name="roles_hunter" ng-model="village.roles['狩人'].num" ng-init="village.roles['狩人'].num=<%= @village.roles['狩人'].num %>" required>
+                    <label for="inputVillageRolesFox" class="control-label">妖狐</label>
+                    <input id="inputVillageRolesFox" type="number" class="form-control" style="max-width:50px;" name="roles_fox" ng-model="village.roles['妖狐'].num" ng-init="village.roles['妖狐'].num=<%= @village.roles['妖狐'].num %>" required>
                 </div>
             </div>
             <div class="form-group form-group-sm">
@@ -71,18 +87,27 @@
                             <input id="inputVillageFirstNPC" type="checkbox" name="firstnpc" ng-model="village.firstnpc" ng-true-value=true ng-false-value=false ng-init="village.firstnpc=<%= @village.firstnpc %>"> 初日NPC &nbsp;
                         </label>
                         <label>
-                            <input id="inputVillageRoledeath" type="checkbox" name="roledeath" ng-model="village.roledeath" ng-true-value=true ng-false-value=false ng-init="village.roledeath=<%= @village.roledeath %>"> 初日役職死
+                            <input id="inputVillageRoledeath" type="checkbox" name="roledeath" ng-model="village.roledeath" ng-true-value=true ng-false-value=false ng-init="village.roledeath=<%= @village.roledeath %>"> 初日役職死 &nbsp;
+                        </label>
+                        <label>
+                            <input id="inputVillageZombie" type="checkbox" name="zombie" ng-model="village.zombie" ng-true-value=true ng-false-value=false ng-init="village.zombie=<%= @village.zombie %>"> ゾンビ
+                        </label>
                     </div>
                 </div>
             </div>
+            <div class="form-group form-group-sm">
+                <label for="inputVillageLoss" class="col-sm-2 control-label">ゾンビ欠損率</label>
+                <div class="col-sm-10">
+                    <input id="inputVillageLoss" type="number" class="form-control" style="max-width:100px;" name="loss" ng-model="village.loss" ng-init="village.loss=<%= @village.loss %>" required min="0" max="1.0" step="0.1">
+                    <span class="msg-error" ng-show="initForm.bitetime.$error.required">Required!</span>
+                </div>
+            </div>  
             <div class="form-group form-group-sm">
                 <div class="col-sm-offset-2 col-sm-10">
                     <button type="submit" class="btn btn-primary">村を作る！</button>
                 </div>
             </div>
         </form>
-
-        <pre>{{village|json}}</pre>
     </div>
 </body>
 </html>

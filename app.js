@@ -382,7 +382,7 @@ var village = {
     firstnpc: true,     // 初日犠牲者はNPC
     roledeath: true,    // 初日役職死亡あり
     zombie: true,       // 死亡してもチャットに参加できる
-    loss: 0.5           // 欠損率 (ゾンビの会話が…になる箇所)
+    loss: 0.2           // 欠損率 (ゾンビの会話が…になる箇所)
 }
 var village_state = {
     state: "廃村",      // 廃村 or 村民募集中 or Playing or 終戦

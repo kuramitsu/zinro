@@ -12,8 +12,8 @@ http://lealog.hateblo.jp/entry/2012/10/07/171006
 
 * 起動　停止
 http://engineer.recruit-lifestyle.co.jp/techblog/2015-08-28-node7/
-foever start app.js
-foever stop app.js
+forever start app.js
+forever stop app.js
 
 
 $ bower install angular-strap --save

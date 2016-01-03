@@ -17,7 +17,7 @@
     </script>
     <script src="<%= @static_url %>/zinro/js/main.js"></script>
 </head>
-<body ng-controller="ZinroCtrl">
+<body ng-controller="ZinroCtrl" ng-style="style_body">
     <nav id="navheader" class="navbar navbar-fixed-top navbar-inverse" role="navigation" bs-navbar>
         <div class="container">
             <!-- http://rails.honobono-life.info/Tutorial_Bootstrap3_AngularJS_NavMenu  -->
@@ -35,7 +35,7 @@
         </div>
     </nav>
 
-    <div class="container" ng-style="style_container">
+    <div class="container">
         <div ng-show="village_state.state == '廃村'">
             <br>
             <a href="/init_village">村を作ってください…</a>
@@ -85,7 +85,7 @@
                         <pre>{{r.msg}}</pre>
                     </div>
                 </div>
-                <form novalidate id="vform" name="villagerForm" ng-submit="sendVillager()" role="form">
+                <form novalidate ng-show="user.role != '観測者'" id="vform" name="villagerForm" ng-submit="sendVillager()" role="form">
                     <div class="input-group">
                         <input type="text" class="form-control" name="villagertext" ng-model="villagertext" required ng-maxlength="512">
                         <span class="input-group-btn">
@@ -111,7 +111,10 @@
                 </form>
             </div>
             <div class="cmdarea" ng-show="cmds.activeTab == '噛む'">
-                <form novalidate id="biteform" name="biteForm" ng-submit="bite()" role="form">
+                <div ng-show="biteselected">
+                    今晩は「{{biteselected}}」を襲撃します。
+                </div>
+                <form ng-show="!biteselected" novalidate id="biteform" name="biteForm" ng-submit="bite()" role="form">
                     <div class="input-group">
                         <select class="form-control" ng-model="bitetarget" ng-options="target for target in bitetargets"></select> 
                         <span class="input-group-btn">
@@ -125,7 +128,10 @@
             <div class="cmdarea" ng-show="cmds.activeTab == '守る'">
             </div>
             <div class="cmdarea" ng-show="cmds.activeTab == '投票'">
-                <form novalidate id="voteform" name="voteForm" ng-submit="vote()" role="form">
+                <div ng-show="voteselected">
+                    「{{voteselected}}」に投票しました！
+                </div>
+                <form ng-show="!voteselected" novalidate id="voteform" name="voteForm" ng-submit="vote()" role="form">
                     <div class="input-group">
                         <select class="form-control" ng-model="votetarget" ng-options="target for target in votetargets"></select> 
                         <span class="input-group-btn">

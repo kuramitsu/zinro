@@ -22,6 +22,10 @@ var rolecmds = {
     狩人: {
         昼: ["状態", "村会", "投票"],
         夜: ["状態", "村会", "守る"]
+    },
+    観測者: {
+        昼: ["状態", "村会"],
+        夜: ["状態", "村会"]   
     }
 }
 function getCmds(role, phase) {
@@ -78,13 +82,26 @@ function getChatboxHeight() {
     console.log(_form);
     return _window - _header - _tab - _form;
 }
-
-function getAliveNames(villagers) {
+function getAliveOthers(villagers, me) {
     var _names = [];
     for (var i = 0, len = villagers.length; i < len; i++) {
         var v = villagers[i];
-        if (v.alive) {
+        if (v.alive && v.name != me) {
             _names.push(v.name);
+        }
+        console.log(v);
+    }
+    return _names;
+}
+function getAliveHumans(villagers, werewolves) {
+    var _names = [];
+    werewolves = werewolves || [];
+    for (var i = 0, len = villagers.length; i < len; i++) {
+        var v = villagers[i];
+        if (v.alive) {
+            if (werewolves.indexOf(v.name) < 0) {  // 人狼ではない
+                _names.push(v.name);   
+            }
         }
         console.log(v);
     }
@@ -99,6 +116,7 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
     // 投票関連
     $scope.votetarget = "";  // 投票先
     $scope.votetargets = [];
+    $scope.voteselected = undefined;
     $scope.vote = function() {
         if (!$scope.votetarget) {
             return;
@@ -111,6 +129,7 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
     // 噛み関連
     $scope.bitetarget = "";  // 噛み先
     $scope.bitetargets = [];
+    $scope.biteselected = undefined;
     $scope.bite = function() {
         if (!$scope.bitetarget) {
             return;
@@ -137,27 +156,51 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
             $scope.werewolf_remarks = [];
             $scope.votetarget = "";
             $scope.votetargets = [];
+            $scope.voteselected = undefined;
+            $scope.werewolves = [];
             $scope.bitetarget = ""; 
             $scope.bitetargets = [];
+            $scope.biteselected = undefined;
         }
-        if (data.village_state.phase == "昼") {
-            // 生きてる人を投票対象にする
-            $scope.votetargets = getAliveNames($scope.villagers);
-        }
-        if (data.village_state.phase == "夜") {
-            // 生きてる人を噛み先対象にする
-            $scope.bitetargets = getAliveNames($scope.villagers);
-        }
+        // ユーザー情報取得が間に合わんか？ 報告フェーズでいけるとは思うが
+        io_game.json.emit('get_user', { key: getZinrokey() });
 
+        switch (data.village_state.phase) {
+            case "昼":
+                // 生きてる人を投票対象にする
+                $scope.voteselected = undefined;
+                if ($scope.user) {
+                    $scope.votetargets = getAliveOthers($scope.villagers, $scope.user.name);
+                } else {
+                    $scope.votetargets = getAliveOthers($scope.villagers);
+                }
+                break;
+            case "夜":
+                console.log($scope.user);
+                if ($scope.user && $scope.user.role == "人狼") {   // 人狼なら
+                    $scope.biteselected = undefined;
+                }
+                break;
+            case "噛":
+                break;
+        }
         if ($scope.user) { // cmds更新
             $scope.cmds = getCmds($scope.user.role, $scope.village_state.phase);
             console.log($scope.cmds);
         }
-
-
     });
-    io_game.on('vote', function(data) {
-        
+    io_game.on('werewolfstatus', function(data) {
+        console.log(data);
+        $scope.werewolves = data.werewolves;
+        $scope.bitetargets = getAliveHumans($scope.villagers, $scope.werewolves);
+    });
+    io_game.on('voteselected', function(data) {
+        console.log(data);
+        $scope.voteselected = data;
+    });
+    io_game.on('biteselected', function(data) {
+        console.log(data);
+        $scope.biteselected = data;
     });
     io_game.on('time', function(data) {
         $scope.time = data;
@@ -166,6 +209,15 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
     io_game.on('user', function(data) {
         $scope.user = data;
         $scope.cmds = getCmds($scope.user.role, $scope.village_state.phase);
+        if ($scope.user.alive) {    // 生きてる
+            $scope.style_body = {
+                "background-color": "white"
+            };
+        } else {    // 死んでる
+            $scope.style_body = {
+                "background-color": "red"
+            };
+        }
         console.log(data);
     });
     io_game.on('villager', function(data) {
@@ -230,6 +282,7 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
     
     // 初期状態の取得
     io_game.json.emit('get_status', { key: getZinrokey() });
+    io_game.json.emit('get_user', { key: getZinrokey() });
 
     // Timer処理
     var stopped;
@@ -271,7 +324,9 @@ zinroApp.controller('ZinroCtrl', ["$scope", "$interval", function($scope, $inter
     // $scope.cmds.activeTab = "状態";
     
     // Style関連
-    console.log($scope.style_chatbox);
+    $scope.style_body = {
+        "background-color": "white"
+    };
     $scope.style_chatbox = {
         height: getChatboxHeight() + "px"
     };

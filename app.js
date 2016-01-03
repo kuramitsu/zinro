@@ -20,9 +20,27 @@ app.use(bodyParser.urlencoded({extended: false}));
 app.use(bodyParser.json());
 
 
+// ZOMBIE関連
+function replaceText(text, n, value) {
+    return text.substr(0, n) + value + text.substr(n+1);
+}
+function zombieText(text, loss) {     // 元の文字列をランダムに欠損させる
+    var _len = text.length;
+    var _val = "…";
+    for (var repnum = _len * loss; repnum > 0; repnum--) {
+        var n = Math.floor(Math.random() * _len);
+        console.log(repnum);
+        console.log(n);
+        text = replaceText(text, n, _val);
+    }
+    return text;
+}
+
+
+
 // 噛関連 ======================================================
-var bitetargets = {};    // 日 => target名
-var guardtargets = {};   // 日 => target名　// 守る対象（誰でもOK）
+var bitetargets = {};   // 日 => target名
+var guardtargets = {};  // 日 => target名　// 守る対象（誰でもOK）
 
 
 
@@ -42,14 +60,33 @@ function leave_all_room(socket) {
     socket.leave(room_werewolf);
 }
 
+
 io_game.on('connection', function(socket){
     // ゲームの進行状況同期用
     socket.on("get_status", function(data) {
-        console.log(data.key);   
         socket.json.emit("status", getStatus());
+    });
+    socket.on("get_user", function(data) {
+        console.log(data.key);   
         if (data.key in villagers) {
+            socket.join(room_villager);
             // ユーザー自身の情報を返す
-            socket.json.emit("user", getUser(data.key));
+            var _user = getUser(data.key);
+            if (_user.role == "人狼") {         // 人狼一覧を返す
+                socket.join(room_werewolf);
+                var _wstatus = getWerewolfStatus();
+                io_game.to(room_werewolf).emit("werewolfstatus", _wstatus);
+            }
+            console.log(_user);
+            socket.json.emit("user", _user);
+        } else if (village_state.state == "Playing") {
+            socket.join(room_villager);
+            var _user = {       // 観戦だけできるようにする
+                name: "名無し",
+                role: "観測者",
+                alive: true
+            }
+            socket.json.emit("user", _user);
         }
     });
     // 村に参加する
@@ -65,6 +102,8 @@ io_game.on('connection', function(socket){
             socket.join(room_villager);
             if (_user.role == "人狼") {
                 socket.join(room_werewolf);
+                var _wstatus = getWerewolfStatus();
+                io_game.to(room_werewolf).emit("werewolfstatus", _wstatus);
             }
             socket.json.emit("user", _user);
         
@@ -82,6 +121,17 @@ io_game.on('connection', function(socket){
     // 投票する
     socket.on("vote", function(data) {
         console.log(data);
+        var _v = getUser(data.key);
+        var _t = getUserFromName(data.target);
+        // 投票権限がある人物か判定
+        if (!(_v && _t)) {  // 噛み元や噛み先が村民じゃない
+            return;
+        }
+        if (!(_v.alive && _t.alive)) {  // どっちかすでに死んでる
+            return;
+        }
+        _v.votetargets[village_state.days] = data.target;   // 集計対象は名前のみ
+        socket.json.emit("voteselected", data.target);
     });
     // 投票する
     socket.on("bite", function(data) {
@@ -98,12 +148,14 @@ io_game.on('connection', function(socket){
         if (_v.role != "人狼") {    // 噛み元が人狼じゃない
             return;
         }
-        if (_t.role == "人狼" || _t.role == "妖狐") {      // 噛み先が　人狼　妖狐
+        if (_t.role == "人狼") {    // 噛み先が　人狼
             return;
         }
-        // 狩人の守護判定は「噛」フェーズで実施
+        // 妖狐　狩人の判定は「噛」フェーズで実施
         bitetargets[village_state.days] = _t;
         console.log(bitetargets);
+        io_game.to(room_werewolf).emit("biteselected", data.target);  // 人狼全員に送付
+        console.log("send target:" + data.target);
     });
 
     // チャット関連
@@ -125,7 +177,9 @@ io_game.on('connection', function(socket){
             if (_sender.alive) {    // 生きてる
                 send_chatmsg(room_villager, _name, _msg);
             } else if (village.zombie) {
-                send_chatmsg(room_villager, settings.zombiename, _msg);
+                send_chatmsg(room_villager, 
+                    settings.zombiename, 
+                    zombieText(_msg, village.loss));
             }
         }
         console.log(data);
@@ -141,7 +195,9 @@ io_game.on('connection', function(socket){
                 if (_sender.alive) {    // 生きてる
                     send_chatmsg(room_werewolf, _name, _msg);
                 } else if (village.zombie) {
-                    send_chatmsg(room_werewolf, settings.zombiename, _msg);
+                    send_chatmsg(room_werewolf, 
+                        settings.zombiename, 
+                        zombieText(_msg, village.loss));
                 }
             }
         }
@@ -216,7 +272,7 @@ var village = {
     loss: 0.5           // 欠損率 (ゾンビの会話が…になる箇所)
 }
 var village_state = {
-    state: "廃村",      // 廃村 or 村民募集中 or Playing
+    state: "廃村",      // 廃村 or 村民募集中 or Playing or 決着
     days: 0,            // 何日目か
     phase: "吊",        // 昼 => 吊(勝敗判定) => 夜 => 噛(勝敗判定) => 
     time: 0            // 次のフェーズまでの秒数
@@ -256,11 +312,10 @@ function nextPhase() {
                 }
                 if (_victim) {
                     _victim.alive = false;      // 死亡
-                    console.log(_victim + "が無残な姿で発見されました。");
+                    console.log(_victim.name + "が無残な姿で発見されました。");
                 } else {
                     console.log("犠牲者はいませんでした。");
                 }
-
                 break;
             case "噛":
                 console.log("噛 => 昼");
@@ -303,9 +358,16 @@ function getStatus() {
         village_state: village_state,
         villagers: _vlist, 
         wantnum: _wantnum
-    }
+    };
     return _status;
 }
+function getWerewolfStatus() {      // 人狼のみ取得できる情報
+    var _status = {
+        werewolves: getRoleNames("人狼")
+    };
+    return _status;
+}
+
 
 function getTime() {
     return village_state.time;
@@ -315,6 +377,18 @@ function getUser(key) {
     var _user = villagers[key];
     return _user;
 }
+
+function getRoleNames(role) {
+    var _users = [];
+
+    for (var key in villagers) {
+        if (villagers[key].role == role) {
+            _users.push(villagers[key].name);
+        }
+    }
+    return _users;
+}
+
 
 function getUserFromName(name) {
     var _user = undefined;
@@ -418,7 +492,8 @@ function addVillager(key, name) {
     var villager = {
         name: name,
         alive: true,
-        role: getRole()             // ロールの割り当て
+        role: getRole(),    // ロールの割り当て
+        votetargets: {}     // 日ごとの投票先  投票してなかったら突然死
     }
     villagers[key] = villager;
     return villager;

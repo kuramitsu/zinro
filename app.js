@@ -338,6 +338,7 @@ var village = {
     nighttime: settings.nighttime,
     hangtime: settings.hangtime,
     bitetime: settings.bitetime,
+    endtime: settings.endtime,
     roles: {
         村人: {
             num: 1,
@@ -505,6 +506,7 @@ function nextPhase() {
         }
         if (gamestatus) {   // 勝敗が決してたら
             console.log(gamestatus);
+            village_state.time = village.endtime;
             village_state.state = "終戦";
         }
         // 全員に通知
@@ -590,7 +592,7 @@ function getUserFromName(name) {
 
 var uptime = 0;
 setInterval(function() {
-    if (village_state.state != "廃村" && village_state.state != "終戦" && uptime % 5 == 0) {
+    if (village_state.state != "廃村" && uptime % 5 == 0) {
         console.log(village_state);
         io_game.json.emit("time", getTime()); // 定期的に制限時間の同期とる（） 
         // io_game.json.emit("status", getStatus()); // 定期的に村の状態を全員に送る 
@@ -604,6 +606,9 @@ setInterval(function() {
                 break;
             case "Playing":
                 nextPhase();
+                break;
+            case "終戦":
+                initVillage({}, "廃村");    // 廃村に移行
                 break;
         }
     }

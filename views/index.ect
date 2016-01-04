@@ -23,7 +23,7 @@
             <!-- http://rails.honobono-life.info/Tutorial_Bootstrap3_AngularJS_NavMenu  -->
             <div class="navbar-header" ng-init="countdown()">
                 <a ng-show="village_state.state == '終戦'" class="navbar-brand">
-                    終戦
+                    終戦 （{{time}}秒）
                 </a>
                 <a ng-show="village_state.state == '廃村'" class="navbar-brand">
                     廃村
@@ -52,7 +52,7 @@
                 <li>{{v.name}} 【{{v.role}}】</li>
             </ul>
             <hr>
-            <h4>感想</h4>
+            <h4>井戸端会議</h4>
             <div id="achatbox" class="chatbox" ng-style="style_chatbox">
                 <div ng-repeat="r in all_remarks">
                     {{r.name}}
@@ -135,12 +135,13 @@
                 </div>
             </div>
             
-            <div bs-active-pane="cmds.activeTab" bs-tabs>
+            <div ng-show="village_state.phase == '昼' || village_state.phase == '夜'" bs-active-pane="cmds.activeTab" bs-tabs>
                 <div ng-repeat="cmd in cmds" title="{{ cmd }}" name="{{ cmd }}" bs-pane>
                 </div>
             </div>
             
             <div class="cmdarea" ng-show="cmds.activeTab == '状態'">
+                <br>
                 <div>
                 {{user.name}}さんの役職は…<b>「{{user.role}}」</b>です！
                 </div>
@@ -195,6 +196,7 @@
             </div>
             <div class="cmdarea" ng-show="cmds.activeTab == '噛む'">
                 <div ng-show="biteselected">
+                    <br>
                     今晩は「{{biteselected}}」を襲撃します。
                 </div>
                 <form ng-show="!biteselected" novalidate id="biteform" name="biteForm" ng-submit="bite()" role="form">
@@ -208,6 +210,7 @@
             </div>
             <div class="cmdarea" ng-show="cmds.activeTab == '占う'">
                 <div ng-show="divinestatus[village_state.days]">
+                    <br>
                     「{{divinestatus[village_state.days].name}}」 は　<b>「{{divinestatus[village_state.days].divination}}」</b> でした。
                 </div>
                 <form ng-show="!divinestatus[village_state.days]" novalidate id="divineform" name="divineForm" ng-submit="divine()" role="form">
@@ -221,6 +224,7 @@
             </div>
             <div class="cmdarea" ng-show="cmds.activeTab == '守る'">
                 <div ng-show="guardselected">
+                    <br>
                     今晩は「{{guardselected}}」を護衛します。
                 </div>
                 <form ng-show="!guardselected" novalidate id="guardform" name="guardForm" ng-submit="guard()" role="form">
@@ -234,6 +238,7 @@
             </div>
             <div class="cmdarea" ng-show="cmds.activeTab == '投票'">
                 <div ng-show="voteselected">
+                    <br>
                     「{{voteselected}}」に投票しました！
                 </div>
                 <form ng-show="!voteselected" novalidate id="voteform" name="voteForm" ng-submit="vote()" role="form">

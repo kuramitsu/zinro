@@ -52,6 +52,22 @@
                 <li>{{v.name}} 【{{v.role}}】</li>
             </ul>
             <hr>
+            <h4>感想</h4>
+            <div id="achatbox" class="chatbox" ng-style="style_chatbox">
+                <div ng-repeat="r in all_remarks">
+                    {{r.name}}
+                    <pre>{{r.msg}}</pre>
+                </div>
+            </div>
+            <form novalidate id="aform" name="allForm" ng-submit="sendAll()" role="form">
+                <div class="input-group">
+                    <input type="text" class="form-control" name="alltext" ng-model="alltext" required ng-maxlength="512">
+                    <span class="input-group-btn">
+                        <button type="submit" class="btn btn-primary">投稿</button>
+                    </span>
+                </div>
+            </form>
+            <hr>
             <br>
             <a href="/init_village">もう一度 村を作る！</a>
         </div> 
@@ -152,7 +168,7 @@
                         <pre>{{r.msg}}</pre>
                     </div>
                 </div>
-                <form novalidate ng-show="user.role != '観測者'" id="vform" name="villagerForm" ng-submit="sendVillager()" role="form">
+                <form novalidate ng-show="user.role != '観戦者'" id="vform" name="villagerForm" ng-submit="sendVillager()" role="form">
                     <div class="input-group">
                         <input type="text" class="form-control" name="villagertext" ng-model="villagertext" required ng-maxlength="512">
                         <span class="input-group-btn">

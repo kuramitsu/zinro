@@ -145,7 +145,7 @@ io_game.on('connection', function(socket){
             socket.join(room_villager);
             var _user = {       // 観戦だけできるようにする
                 name: "名無し",
-                role: "観測者",
+                role: "観戦者",
                 alive: true
             }
             socket.json.emit("user", _user);
@@ -316,6 +316,15 @@ io_game.on('connection', function(socket){
             }
         }
     });
+    socket.on('allchat', function(data) {       // 村人じゃなくても送れる
+        var _sender = getUser(data.key);
+        if (_sender) {
+            io_game.emit('allchat', {name: _sender.name, msg: data.msg});
+        } else {
+            io_game.emit('allchat', {name: '観戦者', msg: data.msg});
+        }
+    });
+
     socket.on('disconnected',function() {
         console.log('disconnected');
     }); 
@@ -382,7 +391,7 @@ var village = {
     firstnpc: true,     // 初日犠牲者はNPC
     roledeath: true,    // 初日役職死亡あり
     zombie: true,       // 死亡してもチャットに参加できる
-    loss: 0.2           // 欠損率 (ゾンビの会話が…になる箇所)
+    loss: 0.2           // 欠損率 (死者の会話が…になる箇所)
 }
 var village_state = {
     state: "廃村",      // 廃村 or 村民募集中 or Playing or 終戦
